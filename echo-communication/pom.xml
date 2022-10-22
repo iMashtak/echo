@@ -2,28 +2,26 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>echo-root</artifactId>
+        <groupId>com.github.imashtak</groupId>
+        <version>1.0.0</version>
+    </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.github.imashtak</groupId>
-    <artifactId>echo-root</artifactId>
-    <packaging>pom</packaging>
-    <version>1.0.0</version>
-    <modules>
-        <module>echo-core</module>
-        <module>echo-core-spring</module>
-        <module>echo-communication</module>
-    </modules>
+    <artifactId>echo-communication</artifactId>
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <dependencies>
         <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>1.18.24</version>
+            <groupId>com.github.imashtak</groupId>
+            <artifactId>echo-core</artifactId>
+            <version>1.0.0</version>
         </dependency>
     </dependencies>
 

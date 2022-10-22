@@ -1,4 +1,4 @@
-package com.github.imashtak.echo.spring;
+package com.github.imashtak.echo.core.spring;
 
 import com.github.imashtak.echo.core.Bus;
 import com.github.imashtak.echo.core.Handler;

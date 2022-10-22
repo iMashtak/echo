@@ -1,6 +1,6 @@
 package com.github.imashtak.echo.example.example;
 
-import com.github.imashtak.echo.spring.EchoSpringConfiguration;
+import com.github.imashtak.echo.core.spring.EchoSpringConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 

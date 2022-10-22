@@ -94,6 +94,14 @@ public final class Bus {
     }
 
     @SuppressWarnings("unchecked")
+    public Collection<Class<Event>> eventClasses() {
+        return sinkClassifiers.stream()
+            .filter(Event.class::isAssignableFrom)
+            .map(x -> (Class<Event>)x)
+            .toList();
+    }
+
+    @SuppressWarnings("unchecked")
     public <T> void publish(T event) {
         publish(event, (Class<T>) event.getClass());
     }
