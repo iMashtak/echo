@@ -2,8 +2,6 @@ package com.github.imashtak.echo.core;
 
 import lombok.Getter;
 
-import java.util.Optional;
-
 @Getter
 public abstract class Task<TFailure extends Failure, TSuccess extends Success> extends Event {
 
@@ -11,7 +9,13 @@ public abstract class Task<TFailure extends Failure, TSuccess extends Success> e
     private final Class<TSuccess> successType;
 
     protected Task(Class<TFailure> failureType, Class<TSuccess> successType) {
-        super(Optional.empty());
+        super();
+        this.failureType = failureType;
+        this.successType = successType;
+    }
+
+    protected Task(Event parent, Class<TFailure> failureType, Class<TSuccess> successType) {
+        super(parent);
         this.failureType = failureType;
         this.successType = successType;
     }

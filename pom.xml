@@ -10,14 +10,6 @@
     <version>1.0.0</version>
     <modules>
         <module>echo-core</module>
-        <module>echo-distributed</module>
-        <module>echo-app</module>
-        <module>echo-app-handler</module>
-        <module>echo-app-handler-spring</module>
-        <module>demo</module>
-        <module>echo-storage</module>
-        <module>echo-storage-kafka</module>
-        <module>echo-serialization</module>
     </modules>
 
     <properties>

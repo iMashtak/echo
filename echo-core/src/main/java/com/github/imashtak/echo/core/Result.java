@@ -2,7 +2,6 @@ package com.github.imashtak.echo.core;
 
 import lombok.Getter;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Getter
@@ -11,7 +10,7 @@ public abstract class Result extends Event {
     private final UUID taskId;
 
     protected Result(Task<?, ?> task) {
-        super(Optional.of(task));
+        super(task);
         this.taskId = task.id();
     }
 
