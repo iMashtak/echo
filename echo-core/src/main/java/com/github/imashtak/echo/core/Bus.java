@@ -187,7 +187,7 @@ public final class Bus {
         subscribe(this.classifiedSinks.get(type).asFlux(), operation);
     }
 
-    public <T extends Event & SelfHandler<T>> void subscribe(Class<T> type) {
+    public <T extends Event & SelfHandler> void subscribe(Class<T> type) {
         subscribe(type, (x) -> x.handleSelf(this));
     }
 
@@ -201,9 +201,9 @@ public final class Bus {
     @SuppressWarnings("unchecked")
     private <T> Disposable subscribe(Flux<?> flux, Consumer<T> operation) {
         return flux
-            .parallel(100)
+            .parallel(2)
             .runOn(Schedulers.boundedElastic())
-            //.log()
+            .log()
             .subscribe(
                 x -> {
                     try {

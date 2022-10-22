@@ -1,5 +1,5 @@
 package com.github.imashtak.echo.core;
 
-public interface SelfHandler<E extends Event> {
+public interface SelfHandler {
     void handleSelf(Bus bus);
 }

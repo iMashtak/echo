@@ -73,7 +73,7 @@ public class EchoSpringConfiguration {
         var ok = Arrays.asList(type.getInterfaces()).contains(SelfHandler.class);
         if (!ok) return;
         try {
-            var handlerType = (Class<SelfHandler<?>>) type;
+            var handlerType = (Class<SelfHandler>) type;
             var handleMethod = handlerType.getMethod("handleSelf", Bus.class);
             bus.subscribe(handlerType, x -> {
                 try {

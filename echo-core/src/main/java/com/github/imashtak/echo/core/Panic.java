@@ -4,7 +4,7 @@ import lombok.Getter;
 
 @Getter
 public final class Panic extends Event {
-    private final Throwable exception;
+    private Throwable exception;
 
     Panic(Throwable exception) {
         super();

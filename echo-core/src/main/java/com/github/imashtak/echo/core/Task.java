@@ -1,6 +1,7 @@
 package com.github.imashtak.echo.core;
 
 import lombok.Getter;
+import lombok.SneakyThrows;
 
 @Getter
 public abstract class Task<TFailure extends Failure, TSuccess extends Success> extends Event {
@@ -19,4 +20,13 @@ public abstract class Task<TFailure extends Failure, TSuccess extends Success> e
         this.failureType = failureType;
         this.successType = successType;
     }
+
+    @SuppressWarnings("unchecked")
+    @SneakyThrows
+    public Task(SerializedEvent x) {
+        super(x);
+        this.failureType = (Class<TFailure>) Class.forName(x.get("failureType", String.class));
+        this.successType = (Class<TSuccess>) Class.forName(x.get("successType", String.class));
+    }
+
 }

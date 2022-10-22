@@ -11,4 +11,9 @@ public abstract class Failure extends Result {
         super(task);
         this.cause = cause;
     }
+
+    public Failure(SerializedEvent x) {
+        super(x);
+        this.cause = new Exception(); // TODO
+    }
 }

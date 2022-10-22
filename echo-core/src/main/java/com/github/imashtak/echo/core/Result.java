@@ -21,4 +21,9 @@ public abstract class Result extends Event {
     public boolean isFailure() {
         return Failure.class.isAssignableFrom(this.getClass());
     }
+
+    public Result(SerializedEvent x) {
+        super(x);
+        this.taskId = x.get("taskId", UUID.class);
+    }
 }
