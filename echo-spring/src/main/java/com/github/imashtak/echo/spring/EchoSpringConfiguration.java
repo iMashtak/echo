@@ -1,13 +1,15 @@
 package com.github.imashtak.echo.spring;
 
 import com.github.imashtak.echo.core.Bus;
-import com.github.imashtak.echo.core.Event;
 import com.github.imashtak.echo.core.Handler;
+import com.github.imashtak.echo.core.Handles;
+import com.github.imashtak.echo.core.SelfHandler;
 import org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ClassPathBeanDefinitionScanner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ScannedGenericBeanDefinition;
+import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 
 import java.lang.reflect.InvocationTargetException;
@@ -23,12 +25,14 @@ public class EchoSpringConfiguration {
         return bus;
     }
 
-    @SuppressWarnings({"unchecked", "ConstantConditions", "JavaReflectionInvocation"})
+
+    @SuppressWarnings("ConstantConditions")
     private static void registerEventHandlers(Bus bus) {
         var registry = new SimpleBeanDefinitionRegistry();
         var scanner = new ClassPathBeanDefinitionScanner(registry);
         scanner.resetFilters(false);
-        scanner.addIncludeFilter(new AssignableTypeFilter(Handler.class));
+        scanner.addIncludeFilter(new AnnotationTypeFilter(Handler.class));
+        scanner.addIncludeFilter(new AssignableTypeFilter(SelfHandler.class));
         scanner.scan("");
         Arrays.stream(registry.getBeanDefinitionNames())
             .filter(name -> !name.startsWith("org.spring"))
@@ -41,28 +45,45 @@ public class EchoSpringConfiguration {
                 }
             })
             .forEach(type -> {
-                var handlerType = (Class<Handler<?>>) type;
+                processAsHandler(type, bus);
+                processAsSelfHandler(type, bus);
+            });
+    }
+
+    private static void processAsHandler(Class<?> type, Bus bus) {
+        var ok = type.isAnnotationPresent(Handler.class);
+        if (!ok) return;
+        var handleMethods = Arrays.stream(type.getMethods())
+            .filter(x -> x.isAnnotationPresent(Handles.class))
+            .toList();
+        for (var handleMethod : handleMethods) {
+            var eventType = handleMethod.getAnnotation(Handles.class).value();
+            bus.subscribe(eventType, x -> {
                 try {
-                    var handleMethod = handlerType.getMethod("handle", Object.class, Bus.class);
-                    Class<?> eventType;
-                    if (Event.class.isAssignableFrom(type)) {
-                        eventType = handlerType;
-                    }
-                    else if (handleMethod.isAnnotationPresent(Handles.class)) {
-                        eventType = handleMethod.getAnnotation(Handles.class).value();
-                    } else {
-                        return;
-                    }
-                    bus.subscribe(eventType, x -> {
-                        try {
-                            handleMethod.invoke(x, bus);
-                        } catch (IllegalAccessException | InvocationTargetException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-                } catch (NoSuchMethodException e) {
+                    handleMethod.invoke(x, bus);
+                } catch (IllegalAccessException | InvocationTargetException e) {
                     throw new RuntimeException(e);
                 }
             });
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void processAsSelfHandler(Class<?> type, Bus bus) {
+        var ok = Arrays.asList(type.getInterfaces()).contains(SelfHandler.class);
+        if (!ok) return;
+        try {
+            var handlerType = (Class<SelfHandler<?>>) type;
+            var handleMethod = handlerType.getMethod("handleSelf", Bus.class);
+            bus.subscribe(handlerType, x -> {
+                try {
+                    handleMethod.invoke(x, bus);
+                } catch (IllegalAccessException | InvocationTargetException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

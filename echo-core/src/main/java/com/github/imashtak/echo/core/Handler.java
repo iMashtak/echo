@@ -1,5 +1,11 @@
 package com.github.imashtak.echo.core;
 
-public interface Handler<E> {
-    void handle(E event, Bus bus);
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE})
+public @interface Handler {
 }

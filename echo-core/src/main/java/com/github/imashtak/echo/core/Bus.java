@@ -179,8 +179,8 @@ public final class Bus {
         subscribe(this.classifiedSinks.get(type).asFlux(), operation);
     }
 
-    public <T extends Event & Handler<T>> void subscribe(Class<T> type) {
-        subscribe(type, (x) -> x.handle(x, this));
+    public <T extends Event & SelfHandler<T>> void subscribe(Class<T> type) {
+        subscribe(type, (x) -> x.handleSelf(this));
     }
 
     @SuppressWarnings("unchecked")

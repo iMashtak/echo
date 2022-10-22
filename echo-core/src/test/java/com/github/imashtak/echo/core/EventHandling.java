@@ -8,14 +8,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.IntStream;
 
 public class EventHandling {
 
     @Getter
     private static class TestTask
         extends Task<TestTask.TestFailure, TestTask.TestSuccess>
-        implements Handler<TestTask>
+        implements SelfHandler<TestTask>
     {
         private static final AtomicInteger x = new AtomicInteger();
 
@@ -24,9 +23,9 @@ public class EventHandling {
         }
 
         @Override
-        public void handle(TestTask event, Bus bus) {
+        public void handleSelf(Bus bus) {
             x.incrementAndGet();
-            bus.publish(new TestTask.TestSuccess(event));
+            bus.publish(new TestTask.TestSuccess(this));
         }
 
         public static class TestSuccess extends Success {
@@ -52,12 +51,15 @@ public class EventHandling {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {10_000, 100_000, 1_000_000})
+    @ValueSource(ints = {1_000_000, 10, 100, 1_000, 10_000, 100_000, 1_000_000})
     @SneakyThrows
     void benchmark(int count) {
+        var workBuilder = Work.builder();
+        for (var i = 0; i < count; ++i) {
+            workBuilder.task(new TestTask());
+        }
+        var work = workBuilder.build();
         var start = System.currentTimeMillis();
-        var tasks = IntStream.range(0, count).mapToObj(i -> new TestTask()).toList();
-        var work = new Work(tasks);
         var results = bus.publishAndAwait(work);
 
         var resultsCount = results.toStream().count();
