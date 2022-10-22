@@ -18,11 +18,8 @@ public final class Communicator {
     private final ConcurrentHashMap<UUID, Boolean> producedEventsIds = new ConcurrentHashMap<>();
 
     public void start() {
-        var destinations = bus.eventClasses().stream()
-            .map(Communicator::eventClassToDestination)
-            .toList();
         var consumingThread = new Thread(() -> store
-            .consume(destinations)
+            .consume(bus.eventClasses())
             .log()
             .subscribe(event -> {
                 var id = event.id();
@@ -40,13 +37,10 @@ public final class Communicator {
             var consumed = consumedEventsIds.remove(event.id());
             if (consumed != null && consumed) return;
             //noinspection unchecked
-            var destination = eventClassToDestination((Class<Event>) event.getClass());
+            var destination = (Class<Event>) event.getClass();
             producedEventsIds.put(event.id(), true);
             store.produce(destination, event);
         });
     }
 
-    public static String eventClassToDestination(Class<Event> event) {
-        return event.getName();
-    }
 }

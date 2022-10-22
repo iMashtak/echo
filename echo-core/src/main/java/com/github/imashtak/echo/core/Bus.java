@@ -94,7 +94,7 @@ public final class Bus {
     }
 
     @SuppressWarnings("unchecked")
-    public Collection<Class<Event>> eventClasses() {
+    public List<Class<Event>> eventClasses() {
         return sinkClassifiers.stream()
             .filter(Event.class::isAssignableFrom)
             .map(x -> (Class<Event>)x)

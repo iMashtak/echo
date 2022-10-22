@@ -12,7 +12,8 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 
 import java.time.Duration;
-import java.util.Properties;
+import java.util.HashMap;
+import java.util.UUID;
 
 @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
 @SpringBootApplication
@@ -33,26 +34,29 @@ public class ExampleMicroservicesFrontendApplication {
 
     @EventListener
     public void onApplicationEvent(ContextRefreshedEvent event) {
-        var consumerProperties = new Properties();
-        consumerProperties.setProperty("bootstrap.servers", "localhost:29092");
-        consumerProperties.setProperty("group.id", "test");
-        consumerProperties.setProperty("enable.auto.commit", "true");
-        consumerProperties.setProperty("auto.commit.interval.ms", "1000");
-        consumerProperties.setProperty("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        consumerProperties.setProperty("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+        var consumerProperties = new HashMap<String, Object>();
+        consumerProperties.put("bootstrap.servers", "localhost:29092");
+        consumerProperties.put("enable.auto.commit", "true");
+        consumerProperties.put("auto.commit.interval.ms", "1000");
+        consumerProperties.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
+        consumerProperties.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
 
-        var producerProperties = new Properties();
+        var producerProperties = new HashMap<String, Object>();
         producerProperties.put("bootstrap.servers", "localhost:29092");
         producerProperties.put("linger.ms", 1);
         producerProperties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         producerProperties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 
         var store = new KafkaStore(
-            consumerProperties,
-            producerProperties,
             new JacksonJsonSerializer(),
             new JacksonJsonDeserializer(),
-            Duration.ofMillis(200)
+            Duration.ofMillis(200),
+            new KafkaStore.Options(
+                consumerProperties,
+                producerProperties,
+                "example",
+                UUID.randomUUID().toString()
+            )
         );
         var communicator = new Communicator(bus, store);
         communicator.start();

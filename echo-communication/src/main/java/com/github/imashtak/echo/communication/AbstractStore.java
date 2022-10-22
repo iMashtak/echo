@@ -12,7 +12,7 @@ public abstract class AbstractStore implements Store {
     public static final String TYPE_FIELD_NAME = "type";
 
     @Override
-    public final Flux<Event> consume(List<String> destinations) {
+    public final Flux<Event> consume(List<Class<Event>> destinations) {
         return consumeInternal(destinations)
             .map(x -> {
                 var type = x.get(TYPE_FIELD_NAME, String.class);
@@ -31,11 +31,11 @@ public abstract class AbstractStore implements Store {
     }
 
     @Override
-    public final void produce(String destination, Event event) {
+    public final void produce(Class<Event> destination, Event event) {
         produceInternal(destination, SerializedEvent.of(event));
     }
 
-    protected abstract Flux<SerializedEvent> consumeInternal(List<String> destination);
+    protected abstract Flux<SerializedEvent> consumeInternal(List<Class<Event>> destination);
 
-    protected abstract void produceInternal(String destination, SerializedEvent event);
+    protected abstract void produceInternal(Class<Event> destination, SerializedEvent event);
 }

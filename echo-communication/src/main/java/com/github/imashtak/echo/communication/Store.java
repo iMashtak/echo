@@ -6,6 +6,6 @@ import reactor.core.publisher.Flux;
 import java.util.List;
 
 public interface Store {
-    Flux<Event> consume(List<String> destination);
-    void produce(String destination, Event event);
+    Flux<Event> consume(List<Class<Event>> destinations);
+    void produce(Class<Event> destination, Event event);
 }
