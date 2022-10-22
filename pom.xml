@@ -10,6 +10,7 @@
     <version>1.0.0</version>
     <modules>
         <module>echo-core</module>
+        <module>echo-spring</module>
     </modules>
 
     <properties>
