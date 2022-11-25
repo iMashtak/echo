@@ -29,6 +29,8 @@ public final class Bus {
     public static class Options {
         private Duration publishNonSerializableDelay = Duration.ofMillis(1);
         private Duration publishOverflowDelay = Duration.ofMillis(50);
+        private int defaultParallelism = 7;
+        private boolean logEvents = false;
 
         private Options() {
         }
@@ -38,13 +40,17 @@ public final class Bus {
         }
     }
 
-    public Bus() {
+    public Bus(Options options) {
         this.classifiedSinks = new ConcurrentHashMap<>();
         this.sinkClassifiers = ConcurrentHashMap.newKeySet();
         this.taskResults = new ConcurrentHashMap<>();
         this.predicativeSinks = new ConcurrentHashMap<>();
         this.park = Executors.newSingleThreadScheduledExecutor();
-        this.options = Options.define();
+        this.options = options;
+    }
+
+    public Bus() {
+        this(Options.define());
     }
 
     public Bus(Consumer<Options> m) {
@@ -70,12 +76,16 @@ public final class Bus {
     private <T> void emit(Sinks.Many<T> sink, T event) {
         var result = sink.tryEmitNext(event);
         switch (result) {
-            case FAIL_OVERFLOW -> {
-                park.schedule(() -> emit(sink, event), options.publishOverflowDelay.toNanos(), TimeUnit.NANOSECONDS);
-            }
-            case FAIL_NON_SERIALIZED -> {
-                park.schedule(() -> emit(sink, event), options.publishNonSerializableDelay.toNanos(), TimeUnit.NANOSECONDS);
-            }
+            case FAIL_OVERFLOW -> park.schedule(
+                () -> emit(sink, event),
+                options.publishOverflowDelay.toNanos(),
+                TimeUnit.NANOSECONDS
+            );
+            case FAIL_NON_SERIALIZED -> park.schedule(
+                () -> emit(sink, event),
+                options.publishNonSerializableDelay.toNanos(),
+                TimeUnit.NANOSECONDS
+            );
         }
     }
 
@@ -97,7 +107,7 @@ public final class Bus {
     public List<Class<Event>> eventClasses() {
         return sinkClassifiers.stream()
             .filter(Event.class::isAssignableFrom)
-            .map(x -> (Class<Event>)x)
+            .map(x -> (Class<Event>) x)
             .toList();
     }
 
@@ -182,29 +192,31 @@ public final class Bus {
         return Flux.merge(results);
     }
 
-    public <T> void subscribe(Class<T> type, Consumer<T> operation) {
+    public <T> Disposable subscribe(Class<T> type, Consumer<T> operation) {
         checkSinkClassifiers(type);
-        subscribe(this.classifiedSinks.get(type).asFlux(), operation);
+        return subscribe(this.classifiedSinks.get(type).asFlux(), operation);
     }
 
-    public <T extends Event & SelfHandler> void subscribe(Class<T> type) {
-        subscribe(type, (x) -> x.handleSelf(this));
+    public <T extends Event & SelfHandler> Disposable subscribe(Class<T> type) {
+        return subscribe(type, (x) -> x.handleSelf(this));
     }
 
     @SuppressWarnings("unchecked")
-    public <T> void subscribe(Predicate<T> filter, Consumer<T> operation) {
+    public <T> Disposable subscribe(Predicate<T> filter, Consumer<T> operation) {
         if (!predicativeSinks.containsKey(filter))
             predicativeSinks.put((Predicate<Object>) filter, newSinkMany());
-        subscribe(predicativeSinks.get(filter).asFlux(), operation);
+        return subscribe(predicativeSinks.get(filter).asFlux(), operation);
     }
 
     @SuppressWarnings("unchecked")
     private <T> Disposable subscribe(Flux<?> flux, Consumer<T> operation) {
-        return flux
-            .parallel(2)
-            .runOn(Schedulers.boundedElastic())
-            .log()
-            .subscribe(
+        var fluxx = flux
+            .parallel(options.defaultParallelism)
+            .runOn(Schedulers.boundedElastic());
+        if (options.logEvents) {
+            fluxx = fluxx.log();
+        }
+        return fluxx.subscribe(
                 x -> {
                     try {
                         operation.accept((T) x);

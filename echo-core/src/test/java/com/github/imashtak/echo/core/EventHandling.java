@@ -7,6 +7,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class EventHandling {
@@ -14,7 +16,7 @@ public class EventHandling {
     @Getter
     private static class TestTask
         extends Task<TestTask.TestFailure, TestTask.TestSuccess>
-        implements SelfHandler<TestTask>
+        implements SelfHandler
     {
         private static final AtomicInteger x = new AtomicInteger();
 
@@ -51,7 +53,7 @@ public class EventHandling {
     }
 
     @ParameterizedTest
-    @ValueSource(ints = {1_000_000, 10, 100, 1_000, 10_000, 100_000, 1_000_000})
+    @ValueSource(ints = {2_000_000, 10, 100, 1_000, 10_000, 100_000, 1_000_000})
     @SneakyThrows
     void benchmark(int count) {
         var workBuilder = Work.builder();
@@ -59,12 +61,12 @@ public class EventHandling {
             workBuilder.task(new TestTask());
         }
         var work = workBuilder.build();
-        var start = System.currentTimeMillis();
+        var start = Instant.now();
         var results = bus.publishAndAwait(work);
 
         var resultsCount = results.toStream().count();
         Assertions.assertEquals(count, resultsCount);
-        System.out.println(System.currentTimeMillis() - start);
+        System.out.println(Duration.between(start, Instant.now()).toMillis());
     }
 
 }

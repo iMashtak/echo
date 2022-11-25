@@ -11,8 +11,6 @@
     <modules>
         <module>echo-core</module>
         <module>echo-core-spring</module>
-        <module>echo-communication</module>
-        <module>echo-communication-stdlib</module>
     </modules>
 
     <properties>

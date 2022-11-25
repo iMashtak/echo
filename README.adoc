@@ -1,0 +1,4 @@
+= Echo
+
+Simple event-based framework for developing high concurrent applications.
+

@@ -8,7 +8,7 @@
         <version>2.7.5</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.github.imashtak.echo.example</groupId>
+    <groupId>com.github.imashtak</groupId>
     <artifactId>example-monolith</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <properties>

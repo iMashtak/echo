@@ -4,7 +4,7 @@ import com.github.imashtak.echo.core.Bus;
 import com.github.imashtak.echo.core.SelfHandler;
 import com.github.imashtak.echo.core.Task;
 
-public class ExampleTask extends Task<ExampleFailure, ExampleSuccess> implements SelfHandler<ExampleTask> {
+public class ExampleTask extends Task<ExampleFailure, ExampleSuccess> implements SelfHandler {
     protected ExampleTask() {
         super(ExampleFailure.class, ExampleSuccess.class);
     }

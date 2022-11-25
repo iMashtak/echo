@@ -3,7 +3,6 @@ package com.github.imashtak.echo.core;
 import lombok.Getter;
 
 import java.time.Instant;
-import java.util.Map;
 import java.util.UUID;
 
 @Getter
@@ -23,15 +22,4 @@ public abstract class Event {
         this.id = UUID.randomUUID();
         this.createdAt = Instant.now();
     }
-
-    public Event(SerializedEvent x) {
-        this.id = x.get("id", UUID.class);
-        this.createdAt = x.get("createdAt", Instant.class);
-        this.flow = new Flow(
-            x.get("flowId", UUID.class),
-            x.get("flowCreatedAt", Instant.class)
-        );
-    }
-
-    protected void serialize(Map<String, Object> x){}
 }
