@@ -1,5 +1,6 @@
 name: deploy-to-maven-central
 run-name: Deploy to Maven Central
+on: [workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
