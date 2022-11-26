@@ -17,6 +17,6 @@ jobs:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
       - name: Setup Maven Settings
-        run: echo ${{ secrets.MAVEN_SETTINGS_XML }} > settings.xml
+        run: echo "${{ secrets.MAVEN_SETTINGS_XML }}" > settings.xml
       - name: Maven Deploy
         run: cd echo-core && mvn --settings=../settings.xml clean deploy
