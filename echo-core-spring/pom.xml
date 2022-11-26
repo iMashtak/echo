@@ -2,14 +2,49 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <parent>
-        <artifactId>echo-root</artifactId>
-        <groupId>com.github.imashtak</groupId>
-        <version>1.0.0</version>
-    </parent>
     <modelVersion>4.0.0</modelVersion>
 
+    <groupId>io.github.imashtak</groupId>
     <artifactId>echo-core-spring</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
+
+    <name>Echo Framework with Spring</name>
+    <description>Utilization of Spring capabilities to bring Spring-magic into Echo</description>
+    <url>https://github.com/iMashtak/echo</url>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Mashtak Ivan Andreevich</name>
+            <email>deralusws@gmail.com</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/iMashtak/echo.git</connection>
+        <developerConnection>scm:git:ssh://github.com:iMashtak/echo.git</developerConnection>
+        <url>https://github.com/iMashtak/echo/tree/main</url>
+    </scm>
+
+<!--    <distributionManagement>-->
+<!--        <snapshotRepository>-->
+<!--            <id>sonatype-nexus-snapshots</id>-->
+<!--            <name>Sonatype Nexus Snapshots</name>-->
+<!--            <url>https://oss.sonatype.org/content/repositories/snapshots</url>-->
+<!--        </snapshotRepository>-->
+<!--        <repository>-->
+<!--            <id>sonatype-nexus-staging</id>-->
+<!--            <name>Nexus Release Repository</name>-->
+<!--            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2</url>-->
+<!--        </repository>-->
+<!--    </distributionManagement>-->
 
     <properties>
         <maven.compiler.source>17</maven.compiler.source>
@@ -19,10 +54,18 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.github.imashtak</groupId>
-            <artifactId>echo-core</artifactId>
-            <version>1.0.0</version>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.24</version>
+            <scope>provided</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.github.imashtak</groupId>
+            <artifactId>echo-core</artifactId>
+            <version>0.1.0</version>
+        </dependency>
+
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context</artifactId>
