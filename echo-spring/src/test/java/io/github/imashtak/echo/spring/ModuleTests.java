@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest(classes = {EchoSpringConfiguration.class})
-public class Tests {
+public class ModuleTests {
 
     static {
         System.setProperty("echo.packages.to.scan", "io.github.imashtak.echo.spring");
