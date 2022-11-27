@@ -1,4 +1,4 @@
-name: deploy-to-maven-central
+name: deploy-core
 run-name: Deploy to Maven Central
 on: [workflow_dispatch]
 jobs:
@@ -21,7 +21,5 @@ jobs:
         shell: bash
         env:
           MAVEN_SETTINGS_XML: ${{ secrets.MAVEN_SETTINGS_XML }}
-      - name: Maven Deploy Core
-        run: cd echo-core && mvn --settings=../settings.xml clean package verify deploy && cd ..
-      - name: Maven Deploy Spring
-        run: cd echo-spring && mvn --settings=../settings.xml clean package verify deploy && cd ..
+      - name: Maven Deploy
+        run: cd echo-core && mvn --settings=../settings.xml clean package verify deploy
