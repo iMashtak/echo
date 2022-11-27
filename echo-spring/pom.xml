@@ -6,7 +6,7 @@
 
     <groupId>io.github.imashtak</groupId>
     <artifactId>echo-spring</artifactId>
-    <version>0.1.1</version>
+    <version>0.2.0</version>
     <packaging>jar</packaging>
 
     <name>Echo Framework with Spring</name>
@@ -65,7 +65,7 @@
         <dependency>
             <groupId>io.github.imashtak</groupId>
             <artifactId>echo-core</artifactId>
-            <version>0.1.1</version>
+            <version>0.2.0</version>
         </dependency>
 
         <dependency>
