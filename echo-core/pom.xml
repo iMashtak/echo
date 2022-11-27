@@ -10,7 +10,7 @@
     <packaging>jar</packaging>
 
     <name>Echo Framework</name>
-    <description>Simple event-based framework for developing high concurrent applications</description>
+    <description>Simple event-based framework for developing high concurrent applications wth event-based domain model</description>
     <url>https://github.com/iMashtak/echo</url>
 
     <licenses>
