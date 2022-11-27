@@ -21,5 +21,7 @@ jobs:
         shell: bash
         env:
           MAVEN_SETTINGS_XML: ${{ secrets.MAVEN_SETTINGS_XML }}
-      - name: Maven Deploy
-        run: cd echo-core && mvn --settings=../settings.xml clean package verify deploy
+      - name: Maven Deploy Core
+        run: cd echo-core && mvn --settings=../settings.xml clean package verify deploy && cd ..
+      - name: Maven Deploy Core
+        run: cd echo-core-spring && mvn --settings=../settings.xml clean package verify deploy && cd ..

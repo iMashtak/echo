@@ -100,7 +100,7 @@ public final class Bus {
                 options.publishNonSerializableDelay.toNanos(),
                 TimeUnit.NANOSECONDS
             );
-            case OK -> {}
+            case OK, FAIL_ZERO_SUBSCRIBER -> {}
             default -> result.orThrow();
         }
     }
@@ -250,7 +250,7 @@ public final class Bus {
                     operation.accept((T) x);
                 } catch (Exception ex) {
                     log.error("Bus. Error on accepting event", ex);
-                    publish(new Panic(ex));
+                    publish(new Panic((Event) x, ex));
                 }
             }
         );

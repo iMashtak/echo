@@ -1,4 +1,165 @@
-= Echo
+= Echo Framework
 
-Simple event-based framework for developing high concurrent applications.
+Simple event-based framework for developing high concurrent applications wth event-based domain model.
+
+== Core Usage
+
+=== Getting started
+
+Add the following dependency in your `pom.xml`:
+
+[source,xml]
+----
+<dependency>
+    <groupId>io.github.imashtak</groupId>
+    <artifactId>echo-core</artifactId>
+    <version>0.1.0</version>
+</dependency>
+----
+
+Write your first event:
+
+[source,java]
+----
+class MyEvent extends Event {
+
+    private final String key;
+
+    public MyEvent(String key) {
+        super();
+        this.key = key;
+    }
+
+    public MyEvent(Event parent, String key) {
+        super(parent);
+        this.key = key;
+    }
+
+    public String getKey() {
+        return key;
+    }
+}
+----
+
+Then register subscription for this event onto a bus:
+
+[source,java]
+----
+public class Main {
+    public static void main(String[] args) {
+        var bus = new Bus();
+        bus.subscribe(
+            MyEvent.class,
+            (e) -> System.out.println(e.getKey())
+        );
+    }
+}
+----
+
+And finally publish some events:
+
+[source,java]
+----
+public class Main {
+    public static void main(String[] args) {
+        var bus = new Bus();
+        bus.subscribe(
+            MyEvent.class,
+            (e) -> System.out.println(e.getKey())
+        );
+
+        bus.publish(new MyEvent("k1")); // out: k1
+        bus.publish(new MyEvent("k2")); // out: k2
+        bus.publish(new MyEvent("k3")); // out: k3
+        Thread.sleep(1000);
+    }
+}
+----
+
+Subscription handler will be executed in other thread then `publish` calls, in async manner.
+
+=== Events
+
+
+=== Tasks
+
+`Task` is a subtype of `Event` which is ended with another event which is coled `Result`. `Result` may be `Success` or `Failure`.
+You can use tasks when it is needed to wait for some result of your task handling.
+
+So it enables you to do some synchronous operations in async manner.
+Example:
+
+[source,java]
+----
+public class Main {
+    public static void main(String[] args) {
+        var bus = new Bus();
+        // assuming MyTask extends Task
+        // assuming MySuccess extends Success
+        // assuming MyFailure extends Failure
+        var task = new MyTask();
+        bus.publish();
+        var result = bus.await(task).block();
+        if (result.isSuccess()) {}
+        else {}
+
+        // or more easy
+        var success = bus.publishAndAwaitSuccess(task).block();
+    }
+}
+----
+
+Cause Echo Framework uses https://projectreactor.io[Project Reactor] it is very simple to combine task processing with Spring Web Flux.
+
+=== SelfHandler
+
+`SelfHandler` interface makes usage of events a bit easier cause you gain a possibility to write handling-code right inside your event.
+Example:
+
+[source,java]
+----
+class MyEvent extends Event implements SelfHandler {
+    private final String key;
+
+    public MyEvent(String key) {
+        super();
+        this.key = key;
+    }
+
+    public MyEvent(Event parent, String key) {
+        super(parent);
+        this.key = key;
+    }
+
+    public String getKey() {
+        return key;
+    }
+
+    void handleSelf(Bus bus) {
+        System.out.println(key);
+    }
+}
+----
+
+So then it doesn't need to specify handling method to make a subscription:
+
+[source,java]
+----
+public class Main {
+    public static void main(String[] args) {
+        var bus = new Bus();
+        // handler discovers automatically
+        bus.subscribe(MyEvent.class);
+    }
+}
+----
+
+== Usage with Spring
+
+
+
+
+
+
+
 
