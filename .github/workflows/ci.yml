@@ -1,5 +1,5 @@
-name: core-ci
-run-name: Echo Core CI
+name: ci
+run-name: Echo CI
 on: [ push ]
 jobs:
   ci:
@@ -17,5 +17,7 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-      - name: Maven Deploy
-        run: cd echo-core && mvn clean test
+      - name: "Maven Test: Core"
+        run: cd echo-core && mvn clean install && cd ..
+      - name: "Maven Test: Spring"
+        run: cd echo-spring && mvn clean install && cd ..
