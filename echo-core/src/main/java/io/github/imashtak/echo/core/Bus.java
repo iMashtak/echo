@@ -1,7 +1,8 @@
 package io.github.imashtak.echo.core;
 
+import lombok.Builder;
+import lombok.Getter;
 import lombok.Setter;
-import lombok.experimental.Accessors;
 import lombok.extern.log4j.Log4j2;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
@@ -12,7 +13,10 @@ import reactor.core.scheduler.Schedulers;
 import java.lang.annotation.Annotation;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -28,12 +32,20 @@ public final class Bus {
     private final ScheduledExecutorService park;
     private final Options options;
 
-    @Accessors(fluent = true, chain = true)
+    @Getter
     @Setter
     public static class Options {
+
+        @Builder.Default
         private Duration publishNonSerializableDelay = Duration.ofMillis(1);
+
+        @Builder.Default
         private Duration publishOverflowDelay = Duration.ofMillis(50);
+
+        @Builder.Default
         private int defaultParallelism = 7;
+
+        @Builder.Default
         private boolean logEvents = false;
 
         private Options() {
@@ -59,11 +71,6 @@ public final class Bus {
         this(Options.define());
     }
 
-    public Bus(Consumer<Options> m) {
-        this();
-        m.accept(options);
-    }
-
     private static <T> Sinks.Many<T> newSinkMany() {
         return Sinks.many().multicast().directAllOrNothing();
     }
@@ -86,8 +93,18 @@ public final class Bus {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    public List<Class<Event>> eventClasses() {
+        return sinkClassifiers.stream()
+            .filter(Event.class::isAssignableFrom)
+            .map(x -> (Class<Event>) x)
+            .toList();
+    }
+
+    // region Publish methods
+
     private <T> void emit(Sinks.Many<T> sink, T event) {
-        log.trace(() -> "Bus. Emit event of type: " + event.getClass().getName());
+        log.trace(() -> "Bus: emitting event of type: " + event.getClass().getName());
         var result = sink.tryEmitNext(event);
         switch (result) {
             case FAIL_OVERFLOW -> park.schedule(
@@ -100,7 +117,8 @@ public final class Bus {
                 options.publishNonSerializableDelay.toNanos(),
                 TimeUnit.NANOSECONDS
             );
-            case OK, FAIL_ZERO_SUBSCRIBER -> {}
+            case OK, FAIL_ZERO_SUBSCRIBER -> {
+            }
             default -> result.orThrow();
         }
     }
@@ -127,14 +145,6 @@ public final class Bus {
     }
 
     @SuppressWarnings("unchecked")
-    public List<Class<Event>> eventClasses() {
-        return sinkClassifiers.stream()
-            .filter(Event.class::isAssignableFrom)
-            .map(x -> (Class<Event>) x)
-            .toList();
-    }
-
-    @SuppressWarnings("unchecked")
     public <T> void publish(T event) {
         publish(event, (Class<T>) event.getClass());
     }
@@ -142,7 +152,7 @@ public final class Bus {
     public <T> void publish(T event, Class<T> explicitType) {
         var type = event.getClass();
         if (!Event.class.isAssignableFrom(type)) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException("Bus: attempting to publish object that is not an event, actual type is: " + type.getName());
         }
         if (!explicitType.equals(type)) {
             publishTyped(event, explicitType);
@@ -167,6 +177,10 @@ public final class Bus {
         publishTyped(result, result.getClass());
     }
 
+    // endregion
+
+    // region Awaiting methods
+
     public Mono<Result> await(Task<?, ?> task) {
         return taskResults.get(task.id()).asMono().map(r -> {
             taskResults.remove(task.id());
@@ -174,85 +188,81 @@ public final class Bus {
         });
     }
 
-    @SuppressWarnings("unchecked")
-    public <T extends Success> Mono<T> awaitSuccess(Task<?, T> task) {
-        return taskResults.get(task.id()).asMono().map(r -> {
-            taskResults.remove(task.id());
-            return r;
-        }).filter(Result::isSuccess).map(x -> (T) x);
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T extends Failure> Mono<T> awaitFailure(Task<T, ?> task) {
-        return taskResults.get(task.id()).asMono().map(r -> {
-            taskResults.remove(task.id());
-            return r;
-        }).filter(Result::isFailure).map(x -> (T) x);
-    }
-
-    public Mono<Result> publishAndAwait(Task<?, ?> task) {
+    public Mono<Result> suspend(Task<?, ?> task) {
         publish(task);
         return await(task);
     }
 
-    public <T extends Success> Mono<T> publishAndAwaitSuccess(Task<?, T> task) {
-        publish(task);
-        return awaitSuccess(task);
-    }
-
-    public <T extends Failure> Mono<T> publishAndAwaitFailure(Task<T, ?> task) {
-        publish(task);
-        return awaitFailure(task);
-    }
-
-    public Flux<Result> publishAndAwait(Work work) {
+    public Flux<Result> suspend(Work work) {
         Optional<Task<?, ?>> task;
         var results = new ArrayList<Mono<Result>>();
         while ((task = work.next()).isPresent()) {
-            var result = publishAndAwait(task.get());
+            var result = suspend(task.get());
             results.add(result);
         }
         return Flux.merge(results);
     }
 
-    public <T> Disposable subscribe(Class<T> type, Consumer<T> operation) {
+    // endregion
+
+    // region Subscribtion methods
+
+    public <T> Disposable subscribeOn(Class<T> type, Consumer<T> operation) {
+        return subscribeOn(type, operation, null);
+    }
+
+    public <T> Disposable subscribeOn(Class<T> type, Consumer<T> operation, Integer parallelism) {
         checkSinkClassifiers(type);
-        return subscribe(this.classifiedSinks.get(type).asFlux(), operation);
+        return subscribeOn(this.classifiedSinks.get(type).asFlux(), operation, parallelism);
     }
 
     public <T> Disposable subscribeOnAnnotated(Class<? extends Annotation> type, Consumer<T> operation) {
-        checkAnnotatedSinkClassifiers(type);
-        return subscribe(this.annotatedSinks.get(type).asFlux(), operation);
+        return subscribeOnAnnotated(type, operation, null);
     }
 
-    public <T extends Event & SelfHandler> Disposable subscribe(Class<T> type) {
-        return subscribe(type, (x) -> x.handleSelf(this));
+    public <T> Disposable subscribeOnAnnotated(Class<? extends Annotation> type, Consumer<T> operation, Integer parallelism) {
+        checkAnnotatedSinkClassifiers(type);
+        return subscribeOn(this.annotatedSinks.get(type).asFlux(), operation, parallelism);
+    }
+
+    public <T extends Event & SelfHandler> Disposable subscribeOn(Class<T> type) {
+        return subscribeOn(type, (Integer) null);
+    }
+
+    public <T extends Event & SelfHandler> Disposable subscribeOn(Class<T> type, Integer parallelism) {
+        return subscribeOn(type, (x) -> x.handleSelf(this), parallelism);
+    }
+
+    public <T> Disposable subscribeOn(Predicate<T> filter, Consumer<T> operation) {
+        return subscribeOn(filter, operation, null);
     }
 
     @SuppressWarnings("unchecked")
-    public <T> Disposable subscribe(Predicate<T> filter, Consumer<T> operation) {
+    public <T> Disposable subscribeOn(Predicate<T> filter, Consumer<T> operation, Integer parallelism) {
         if (!predicativeSinks.containsKey(filter))
             predicativeSinks.put((Predicate<Object>) filter, newSinkMany());
-        return subscribe(predicativeSinks.get(filter).asFlux(), operation);
+        return subscribeOn(predicativeSinks.get(filter).asFlux(), operation, parallelism);
     }
 
     @SuppressWarnings("unchecked")
-    private <T> Disposable subscribe(Flux<?> flux, Consumer<T> operation) {
-        var fluxx = flux
-            .parallel(options.defaultParallelism)
+    private <T> Disposable subscribeOn(Flux<?> flux, Consumer<T> operation, Integer parallelism) {
+        var f = flux
+            .parallel(parallelism == null ? options.defaultParallelism : parallelism)
             .runOn(Schedulers.boundedElastic());
         if (options.logEvents) {
-            fluxx = fluxx.log();
+            f = f.log();
         }
-        return fluxx.subscribe(
+        return f.subscribe(
             x -> {
                 try {
                     operation.accept((T) x);
                 } catch (Exception ex) {
-                    log.error("Bus. Error on accepting event", ex);
+                    log.error(() -> "Bus: error while accepting event of type: " + x.getClass().getName(), ex);
                     publish(new Panic((Event) x, ex));
                 }
             }
         );
     }
+
+    // endregion
 }

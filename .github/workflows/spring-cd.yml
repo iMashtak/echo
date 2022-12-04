@@ -1,8 +1,8 @@
-name: deploy-core
-run-name: Deploy to Maven Central
-on: [workflow_dispatch]
+name: spring-cd
+run-name: Echo Spring CD
+on: [ workflow_dispatch ]
 jobs:
-  build:
+  cd:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -22,4 +22,4 @@ jobs:
         env:
           MAVEN_SETTINGS_XML: ${{ secrets.MAVEN_SETTINGS_XML }}
       - name: Maven Deploy
-        run: cd echo-core && mvn --settings=../settings.xml clean package verify deploy
+        run: cd echo-spring && mvn --settings=../settings.xml -DskipTests clean package verify deploy

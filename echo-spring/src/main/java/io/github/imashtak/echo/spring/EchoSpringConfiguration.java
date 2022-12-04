@@ -9,11 +9,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ClassPathBeanDefinitionScanner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ScannedGenericBeanDefinition;
+import org.springframework.core.env.Environment;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.core.type.filter.AssignableTypeFilter;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
+import java.time.Duration;
 import java.util.Arrays;
 
 @Configuration
@@ -21,8 +23,30 @@ import java.util.Arrays;
 public class EchoSpringConfiguration {
 
     @Bean
-    public Bus echoBus() {
-        var bus = new Bus();
+    public Bus echoBus(Environment environment) {
+        var options = Bus.Options.define();
+
+        var publishNonSerializableDelay = environment
+            .getProperty("echo.publishNonSerializableDelay", Long.class);
+        if (publishNonSerializableDelay != null)
+            options.publishNonSerializableDelay(Duration.ofMillis(publishNonSerializableDelay));
+
+        var publishOverflowDelay = environment
+            .getProperty("echo.publishOverflowDelay", Long.class);
+        if (publishOverflowDelay != null)
+            options.publishOverflowDelay(Duration.ofMillis(publishOverflowDelay));
+
+        var defaultParallelism = environment
+            .getProperty("echo.defaultParallelism", Integer.class);
+        if (defaultParallelism != null)
+            options.defaultParallelism(defaultParallelism);
+
+        var logEvents = environment
+            .getProperty("echo.publishOverflowDelay", Boolean.class);
+        if (logEvents != null)
+            options.logEvents(logEvents);
+
+        var bus = new Bus(options);
         registerEventHandlers(bus);
         return bus;
     }
@@ -60,6 +84,7 @@ public class EchoSpringConfiguration {
         for (var handleMethod : handleMethods) {
             var eventType = handleMethod.getAnnotation(Handles.class).value();
             if (eventType.isAnnotation()) {
+                log.trace(() -> "Auto subscribing on events annotated by: " + eventType.getName());
                 bus.subscribeOnAnnotated(eventType.asSubclass(Annotation.class), x -> {
                     try {
                         handleMethod.invoke(null, x, bus);
@@ -68,7 +93,8 @@ public class EchoSpringConfiguration {
                     }
                 });
             } else {
-                bus.subscribe(eventType, x -> {
+                log.trace(() -> "Auto subscribing on events of type: " + eventType.getName());
+                bus.subscribeOn(eventType, x -> {
                     try {
                         handleMethod.invoke(null, x, bus);
                     } catch (IllegalAccessException | InvocationTargetException e) {
@@ -86,7 +112,8 @@ public class EchoSpringConfiguration {
         try {
             var handlerType = (Class<SelfHandler>) type;
             var handleMethod = handlerType.getMethod("handleSelf", Bus.class);
-            bus.subscribe(handlerType, x -> {
+            bus.subscribeOn(handlerType, x -> {
+                log.trace(() -> "Auto subscribing on self-handling events of type: " + handlerType.getName());
                 try {
                     handleMethod.invoke(x, bus);
                 } catch (IllegalAccessException | InvocationTargetException e) {
