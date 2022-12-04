@@ -18,6 +18,6 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
       - name: "Maven Test: Core"
-        run: cd echo-core && mvn -Dgpg.skip=true clean install && cd ..
+        run: cd echo-core && mvn -q -Dgpg.skip=true clean install && cd ..
       - name: "Maven Test: Spring"
-        run: cd echo-spring && mvn -Dgpg.skip=true clean install && cd ..
+        run: cd echo-spring && mvn -q -Dgpg.skip=true clean install && cd ..
