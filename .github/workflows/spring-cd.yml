@@ -11,6 +11,12 @@ jobs:
         with:
           java-version: '17'
           distribution: 'adopt'
+      - name: Cache dependencies
+        uses: actions/cache@v1
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
       - name: Import GPG key
         uses: crazy-max/ghaction-import-gpg@v5
         with:
