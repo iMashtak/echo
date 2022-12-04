@@ -1,5 +1,5 @@
 name: cd
-run-name: Echo Core CD
+run-name: Echo CD
 on: [workflow_dispatch]
 jobs:
   core:
