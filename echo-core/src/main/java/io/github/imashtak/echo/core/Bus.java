@@ -17,6 +17,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -207,61 +208,96 @@ public final class Bus {
 
     // region Subscribtion methods
 
-    public <T> Disposable subscribeOn(Class<T> type, Consumer<T> operation) {
-        return subscribeOn(type, operation, null);
+    public <T> Disposable subscribeOn(
+        Class<T> type,
+        Consumer<T> operation,
+        BiConsumer<T, Throwable> onException
+    ) {
+        return subscribeOn(type, operation, null, onException);
     }
 
-    public <T> Disposable subscribeOn(Class<T> type, Consumer<T> operation, Integer parallelism) {
+    public <T> Disposable subscribeOn(
+        Class<T> type,
+        Consumer<T> operation,
+        Integer parallelism,
+        BiConsumer<T, Throwable> onException
+    ) {
         checkSinkClassifiers(type);
-        return subscribeOn(this.classifiedSinks.get(type).asFlux(), operation, parallelism);
+        return subscribeOn(this.classifiedSinks.get(type).asFlux(), operation, parallelism, onException);
     }
 
-    public <T> Disposable subscribeOnAnnotated(Class<? extends Annotation> type, Consumer<T> operation) {
-        return subscribeOnAnnotated(type, operation, null);
+    public <T> Disposable subscribeOnAnnotated(
+        Class<? extends Annotation> type,
+        Consumer<T> operation,
+        BiConsumer<T, Throwable> onException
+    ) {
+        return subscribeOnAnnotated(type, operation, null, onException);
     }
 
-    public <T> Disposable subscribeOnAnnotated(Class<? extends Annotation> type, Consumer<T> operation, Integer parallelism) {
+    public <T> Disposable subscribeOnAnnotated(
+        Class<? extends Annotation> type,
+        Consumer<T> operation,
+        Integer parallelism,
+        BiConsumer<T, Throwable> onException
+    ) {
         checkAnnotatedSinkClassifiers(type);
-        return subscribeOn(this.annotatedSinks.get(type).asFlux(), operation, parallelism);
+        return subscribeOn(this.annotatedSinks.get(type).asFlux(), operation, parallelism, onException);
     }
 
-    public <T extends Event & SelfHandler> Disposable subscribeOn(Class<T> type) {
-        return subscribeOn(type, (Integer) null);
+    public <T extends SelfHandler> Disposable subscribeOn(
+        Class<T> type
+    ) {
+        return subscribeOn(type, null);
     }
 
-    public <T extends Event & SelfHandler> Disposable subscribeOn(Class<T> type, Integer parallelism) {
-        return subscribeOn(type, (x) -> x.handleSelf(this), parallelism);
+    public <T extends SelfHandler> Disposable subscribeOn(
+        Class<T> type,
+        Integer parallelism
+    ) {
+        return subscribeOn(type, (x) -> x.handleSelf(this), parallelism, (x, ex) -> x.onException(this, ex));
     }
 
-    public <T> Disposable subscribeOn(Predicate<T> filter, Consumer<T> operation) {
-        return subscribeOn(filter, operation, null);
+    public <T> Disposable subscribeOn(
+        Predicate<T> filter,
+        Consumer<T> operation,
+        BiConsumer<T, Throwable> onException
+    ) {
+        return subscribeOn(filter, operation, null, onException);
     }
 
     @SuppressWarnings("unchecked")
-    public <T> Disposable subscribeOn(Predicate<T> filter, Consumer<T> operation, Integer parallelism) {
+    public <T> Disposable subscribeOn(
+        Predicate<T> filter,
+        Consumer<T> operation,
+        Integer parallelism,
+        BiConsumer<T, Throwable> onException
+    ) {
         if (!predicativeSinks.containsKey(filter))
             predicativeSinks.put((Predicate<Object>) filter, newSinkMany());
-        return subscribeOn(predicativeSinks.get(filter).asFlux(), operation, parallelism);
+        return subscribeOn(predicativeSinks.get(filter).asFlux(), operation, parallelism, onException);
     }
 
     @SuppressWarnings("unchecked")
-    private <T> Disposable subscribeOn(Flux<?> flux, Consumer<T> operation, Integer parallelism) {
+    private <T> Disposable subscribeOn(
+        Flux<?> flux,
+        Consumer<T> operation,
+        Integer parallelism,
+        BiConsumer<T, Throwable> onException
+    ) {
         var f = flux
             .parallel(parallelism == null ? options.defaultParallelism : parallelism)
             .runOn(Schedulers.boundedElastic());
         if (options.logEvents) {
             f = f.log();
         }
-        return f.subscribe(
-            x -> {
-                try {
-                    operation.accept((T) x);
-                } catch (Exception ex) {
-                    log.error(() -> "Bus: error while accepting event of type: " + x.getClass().getName(), ex);
-                    publish(new Panic((Event) x, ex));
-                }
+        return f.subscribe(x -> {
+            try {
+                operation.accept((T) x);
+            } catch (Exception ex) {
+                log.error(() -> "Bus: error while accepting event of type: " + x.getClass().getName(), ex);
+                onException.accept((T) x, ex);
             }
-        );
+        });
     }
 
     // endregion

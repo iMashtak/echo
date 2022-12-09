@@ -15,8 +15,10 @@ import org.springframework.core.type.filter.AssignableTypeFilter;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
 
 @Configuration
 @Log4j2
@@ -81,8 +83,22 @@ public class EchoSpringConfiguration {
         var handleMethods = Arrays.stream(type.getMethods())
             .filter(x -> x.isAnnotationPresent(Handles.class))
             .toList();
+        var eventTypeToExceptionHandleMethod = new HashMap<Class<?>, Method>();
+        Arrays.stream(type.getMethods())
+            .filter(x -> x.isAnnotationPresent(HandlesExceptionsOf.class))
+            .forEach(x -> {
+                var a = x.getAnnotation(HandlesExceptionsOf.class);
+                var classes = a.value();
+                for (var c : classes) {
+                    eventTypeToExceptionHandleMethod.put(c, x);
+                }
+            });
         for (var handleMethod : handleMethods) {
             var eventType = handleMethod.getAnnotation(Handles.class).value();
+            var exHandlerMethod = eventTypeToExceptionHandleMethod.get(eventType);
+            if (exHandlerMethod == null) {
+                throw new RuntimeException("not found exception handler for type: " + eventType.getName());
+            }
             if (eventType.isAnnotation()) {
                 log.trace(() -> "Auto subscribing on events annotated by: " + eventType.getName());
                 bus.subscribeOnAnnotated(eventType.asSubclass(Annotation.class), x -> {
@@ -90,6 +106,12 @@ public class EchoSpringConfiguration {
                         handleMethod.invoke(null, x, bus);
                     } catch (IllegalAccessException | InvocationTargetException e) {
                         throw new RuntimeException(e);
+                    }
+                }, (e, ex) -> {
+                    try {
+                        exHandlerMethod.invoke(null, e, ex);
+                    } catch (IllegalAccessException | InvocationTargetException exc) {
+                        throw new RuntimeException(exc);
                     }
                 });
             } else {
@@ -100,6 +122,12 @@ public class EchoSpringConfiguration {
                     } catch (IllegalAccessException | InvocationTargetException e) {
                         throw new RuntimeException(e);
                     }
+                }, (e, ex) -> {
+                    try {
+                        exHandlerMethod.invoke(null, e, ex);
+                    } catch (IllegalAccessException | InvocationTargetException exc) {
+                        throw new RuntimeException(exc);
+                    }
                 });
             }
         }
@@ -109,19 +137,6 @@ public class EchoSpringConfiguration {
     private static void processAsSelfHandler(Class<?> type, Bus bus) {
         var ok = Arrays.asList(type.getInterfaces()).contains(SelfHandler.class);
         if (!ok) return;
-        try {
-            var handlerType = (Class<SelfHandler>) type;
-            var handleMethod = handlerType.getMethod("handleSelf", Bus.class);
-            bus.subscribeOn(handlerType, x -> {
-                log.trace(() -> "Auto subscribing on self-handling events of type: " + handlerType.getName());
-                try {
-                    handleMethod.invoke(x, bus);
-                } catch (IllegalAccessException | InvocationTargetException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-        } catch (NoSuchMethodException e) {
-            throw new RuntimeException(e);
-        }
+        bus.subscribeOn((Class<? extends SelfHandler>) type);
     }
 }

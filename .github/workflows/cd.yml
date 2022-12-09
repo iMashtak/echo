@@ -21,12 +21,6 @@ jobs:
         shell: bash
         env:
           MAVEN_SETTINGS_XML: ${{ secrets.MAVEN_SETTINGS_XML }}
-      - name: Cache dependencies
-        uses: actions/cache@v1
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
       - name: Maven Deploy Core
         run: cd echo-core && mvn -q --settings=../settings.xml -DskipTests clean package verify deploy && cd ..
       - name: Maven Deploy Spring

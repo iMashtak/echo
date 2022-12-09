@@ -16,7 +16,8 @@ public class Tests {
     public void testPublishSubscribe() {
         var ok = new AtomicBoolean(false);
         var bus = new Bus();
-        bus.subscribeOn(TestSimpleEvent.class, e -> ok.set(true));
+        bus.subscribeOn(TestSimpleEvent.class, e -> ok.set(true), (e, ex) -> {
+        });
         bus.publish(new TestSimpleEvent());
         Thread.sleep(10);
         assertTrue(ok.get());
@@ -32,9 +33,12 @@ public class Tests {
         bus.subscribeOn(TestSimpleTask.class, t -> {
             tasks.incrementAndGet();
             bus.publish(new TestSimpleSuccess(t));
+        }, (e, ex) -> {
         });
-        bus.subscribeOn(TestSimpleSuccess.class, e -> successes.incrementAndGet());
-        bus.subscribeOn(TestSimpleFailure.class, e -> failures.incrementAndGet());
+        bus.subscribeOn(TestSimpleSuccess.class, e -> successes.incrementAndGet(), (e, ex) -> {
+        });
+        bus.subscribeOn(TestSimpleFailure.class, e -> failures.incrementAndGet(), (e, ex) -> {
+        });
         bus.suspend(new TestSimpleTask()).block();
         assertEquals(1, tasks.get());
         assertEquals(1, successes.get());
@@ -46,7 +50,8 @@ public class Tests {
     public void testAnnotatedEventsHandling() {
         var ok = new AtomicBoolean(false);
         var bus = new Bus();
-        bus.subscribeOnAnnotated(TestAnnotation.class, e -> ok.set(true));
+        bus.subscribeOnAnnotated(TestAnnotation.class, e -> ok.set(true), (e, ex) -> {
+        });
         bus.publish(new TestAnnotatedEvent());
         Thread.sleep(10);
         assertTrue(ok.get());
@@ -55,15 +60,16 @@ public class Tests {
     @Test
     @SneakyThrows
     public void testExceptionDuringHandlingEvent() {
-        var panics = new AtomicInteger(0);
+        var exceptions = new AtomicInteger(0);
         var bus = new Bus();
         bus.subscribeOn(TestSimpleEvent.class, e -> {
             throw new RuntimeException("random");
+        }, (e, ex) -> {
+            exceptions.getAndIncrement();
         });
-        bus.subscribeOn(Panic.class, e -> panics.incrementAndGet());
         bus.publish(new TestSimpleEvent());
         Thread.sleep(50);
-        assertEquals(1, panics.get());
+        assertEquals(1, exceptions.get());
     }
 
     @Test
@@ -74,7 +80,8 @@ public class Tests {
         bus.subscribeOn(
             e -> e instanceof TestSimpleEvent || e instanceof TestSimpleTask,
             e -> handled.incrementAndGet()
-        );
+            , (e, ex) -> {
+            });
         bus.publish(new TestAnnotatedEvent());
         bus.publish(new TestSimpleEvent());
         bus.publish(new TestSimpleEvent());

@@ -37,7 +37,7 @@ public class ModuleTests {
         bus.publish(new TestSimpleSecondEvent());
         bus.publish(new TestSimpleFirstEvent());
         Thread.sleep(50);
-        assertEquals(6, TestEventHandler.handles.get());
+        assertEquals(8, TestEventHandler.handles.get());
     }
 
 }
