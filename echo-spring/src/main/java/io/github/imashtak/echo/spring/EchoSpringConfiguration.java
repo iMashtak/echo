@@ -4,7 +4,9 @@ package io.github.imashtak.echo.spring;
 import io.github.imashtak.echo.core.Bus;
 import io.github.imashtak.echo.core.SelfHandler;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ClassPathBeanDefinitionScanner;
 import org.springframework.context.annotation.Configuration;
@@ -19,10 +21,14 @@ import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Configuration
 @Log4j2
 public class EchoSpringConfiguration {
+
+    @Autowired
+    ApplicationContext context;
 
     @Bean
     public Bus echoBus(Environment environment) {
@@ -54,7 +60,7 @@ public class EchoSpringConfiguration {
     }
 
     @SuppressWarnings("ConstantConditions")
-    private static void registerEventHandlers(Bus bus) {
+    private void registerEventHandlers(Bus bus) {
         var registry = new SimpleBeanDefinitionRegistry();
         var scanner = new ClassPathBeanDefinitionScanner(registry);
         scanner.resetFilters(false);
@@ -77,9 +83,15 @@ public class EchoSpringConfiguration {
             });
     }
 
-    private static void processAsHandler(Class<?> type, Bus bus) {
+    private void processAsHandler(Class<?> type, Bus bus) {
         var ok = type.isAnnotationPresent(Handler.class);
         if (!ok) return;
+        var bean = new AtomicReference<>(null);
+        try {
+            bean.set(context.getBean(type));
+        } catch (Exception e) {
+            log.info("not found bean of type: " + type.getName());
+        }
         var handleMethods = Arrays.stream(type.getMethods())
             .filter(x -> x.isAnnotationPresent(Handles.class))
             .toList();
@@ -100,31 +112,31 @@ public class EchoSpringConfiguration {
                 throw new RuntimeException("not found exception handler for type: " + eventType.getName());
             }
             if (eventType.isAnnotation()) {
-                log.trace(() -> "Auto subscribing on events annotated by: " + eventType.getName());
+                log.info(() -> "Auto subscribing on events annotated by: " + eventType.getName());
                 bus.subscribeOnAnnotated(eventType.asSubclass(Annotation.class), x -> {
                     try {
-                        handleMethod.invoke(null, x, bus);
+                        handleMethod.invoke(bean.get(), x, bus);
                     } catch (IllegalAccessException | InvocationTargetException e) {
                         throw new RuntimeException(e);
                     }
                 }, (e, ex) -> {
                     try {
-                        exHandlerMethod.invoke(null, e, ex);
+                        exHandlerMethod.invoke(bean.get(), e, ex, bus);
                     } catch (IllegalAccessException | InvocationTargetException exc) {
                         throw new RuntimeException(exc);
                     }
                 });
             } else {
-                log.trace(() -> "Auto subscribing on events of type: " + eventType.getName());
+                log.info(() -> "Auto subscribing on events of type: " + eventType.getName());
                 bus.subscribeOn(eventType, x -> {
                     try {
-                        handleMethod.invoke(null, x, bus);
+                        handleMethod.invoke(bean.get(), x, bus);
                     } catch (IllegalAccessException | InvocationTargetException e) {
                         throw new RuntimeException(e);
                     }
                 }, (e, ex) -> {
                     try {
-                        exHandlerMethod.invoke(null, e, ex);
+                        exHandlerMethod.invoke(bean.get(), e, ex, bus);
                     } catch (IllegalAccessException | InvocationTargetException exc) {
                         throw new RuntimeException(exc);
                     }
@@ -134,7 +146,7 @@ public class EchoSpringConfiguration {
     }
 
     @SuppressWarnings("unchecked")
-    private static void processAsSelfHandler(Class<?> type, Bus bus) {
+    private void processAsSelfHandler(Class<?> type, Bus bus) {
         var ok = Arrays.asList(type.getInterfaces()).contains(SelfHandler.class);
         if (!ok) return;
         bus.subscribeOn((Class<? extends SelfHandler>) type);

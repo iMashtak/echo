@@ -153,7 +153,7 @@ public final class Bus {
     public <T> void publish(T event, Class<T> explicitType) {
         var type = event.getClass();
         if (!Event.class.isAssignableFrom(type)) {
-            throw new IllegalArgumentException("Bus: attempting to publish object that is not an event, actual type is: " + type.getName());
+            throw new IllegalArgumentException("attempting to publish object that is not an event, actual type is: " + type.getName());
         }
         if (!explicitType.equals(type)) {
             publishTyped(event, explicitType);
@@ -294,7 +294,6 @@ public final class Bus {
             try {
                 operation.accept((T) x);
             } catch (Exception ex) {
-                log.error(() -> "Bus: error while accepting event of type: " + x.getClass().getName(), ex);
                 onException.accept((T) x, ex);
             }
         });
