@@ -4,6 +4,8 @@ package io.github.imashtak.echo.spring;
 import io.github.imashtak.echo.core.Bus;
 import io.github.imashtak.echo.core.SelfHandler;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.BeanCurrentlyInCreationException;
+import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry;
 import org.springframework.context.ApplicationContext;
@@ -18,6 +20,7 @@ import org.springframework.core.type.filter.AssignableTypeFilter;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -89,8 +92,11 @@ public class EchoSpringConfiguration {
         var bean = new AtomicReference<>(null);
         try {
             bean.set(context.getBean(type));
-        } catch (Exception e) {
-            log.info("not found bean of type: " + type.getName());
+        } catch (BeanCurrentlyInCreationException ex) {
+            log.error("Error while auto registering handlers on bus: do not inject bus directly via constructor. Use @Lazy or another injection methods", ex);
+            throw new RuntimeException(ex);
+        } catch (NoSuchBeanDefinitionException ex) {
+            log.info("Not found bean of type: %s. Expecting @Handles methods are static".formatted(type.getName()));
         }
         var handleMethods = Arrays.stream(type.getMethods())
             .filter(x -> x.isAnnotationPresent(Handles.class))
@@ -107,6 +113,9 @@ public class EchoSpringConfiguration {
             });
         for (var handleMethod : handleMethods) {
             var eventType = handleMethod.getAnnotation(Handles.class).value();
+            if (bean.get() == null && !Modifier.isStatic(eventType.getModifiers())) {
+                throw new IllegalStateException("@Handles method must be static");
+            }
             var exHandlerMethod = eventTypeToExceptionHandleMethod.get(eventType);
             if (exHandlerMethod == null) {
                 throw new RuntimeException("not found exception handler for type: " + eventType.getName());
@@ -115,13 +124,21 @@ public class EchoSpringConfiguration {
                 log.info(() -> "Auto subscribing on events annotated by: " + eventType.getName());
                 bus.subscribeOnAnnotated(eventType.asSubclass(Annotation.class), x -> {
                     try {
-                        handleMethod.invoke(bean.get(), x, bus);
+                        if (bean.get() == null) {
+                            handleMethod.invoke(null, x, bus);
+                        } else {
+                            handleMethod.invoke(bean.get(), x);
+                        }
                     } catch (IllegalAccessException | InvocationTargetException e) {
                         throw new RuntimeException(e);
                     }
                 }, (e, ex) -> {
                     try {
-                        exHandlerMethod.invoke(bean.get(), e, ex, bus);
+                        if (bean.get() == null) {
+                            exHandlerMethod.invoke(null, e, ex, bus);
+                        } else {
+                            exHandlerMethod.invoke(bean.get(), e, ex);
+                        }
                     } catch (IllegalAccessException | InvocationTargetException exc) {
                         throw new RuntimeException(exc);
                     }
@@ -130,13 +147,21 @@ public class EchoSpringConfiguration {
                 log.info(() -> "Auto subscribing on events of type: " + eventType.getName());
                 bus.subscribeOn(eventType, x -> {
                     try {
-                        handleMethod.invoke(bean.get(), x, bus);
+                        if (bean.get() == null) {
+                            handleMethod.invoke(null, x, bus);
+                        } else {
+                            handleMethod.invoke(bean.get(), x);
+                        }
                     } catch (IllegalAccessException | InvocationTargetException e) {
                         throw new RuntimeException(e);
                     }
                 }, (e, ex) -> {
                     try {
-                        exHandlerMethod.invoke(bean.get(), e, ex, bus);
+                        if (bean.get() == null) {
+                            exHandlerMethod.invoke(null, e, ex, bus);
+                        } else {
+                            exHandlerMethod.invoke(bean.get(), e, ex);
+                        }
                     } catch (IllegalAccessException | InvocationTargetException exc) {
                         throw new RuntimeException(exc);
                     }

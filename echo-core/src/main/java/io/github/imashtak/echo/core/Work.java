@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public final class Work {
+public class Work {
     private final List<Task<?, ?>> tasks;
     private final AtomicInteger offset = new AtomicInteger();
 

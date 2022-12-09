@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 @Log4j2
-public final class Bus {
+public class Bus {
 
     private final Map<Class<?>, Sinks.Many<Object>> classifiedSinks;
     private final Collection<Class<?>> sinkClassifiers;

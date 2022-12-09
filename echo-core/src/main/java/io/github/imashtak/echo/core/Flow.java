@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Getter
-public final class Flow {
+public class Flow {
     private final UUID id;
     private final Instant createdAt;
 
