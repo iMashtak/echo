@@ -25,3 +25,5 @@ jobs:
         run: cd echo-core && mvn -q --settings=../settings.xml -DskipTests clean package verify deploy && cd ..
       - name: Maven Deploy Spring
         run: cd echo-spring && mvn -q --settings=../settings.xml -DskipTests clean package verify deploy && cd ..
+      - name: Maven Deploy Quarkus
+        run: cd echo-quarkus && mvn -q --settings=../settings.xml -DskipTests clean package verify deploy && cd ..

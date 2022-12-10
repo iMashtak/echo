@@ -157,9 +157,5 @@ public class Main {
 == Usage with Spring
 
 
-
-
-
-
-
+== Usage with Quarkus
 
