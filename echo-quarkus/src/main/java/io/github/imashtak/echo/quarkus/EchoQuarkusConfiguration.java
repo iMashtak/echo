@@ -3,9 +3,11 @@ package io.github.imashtak.echo.quarkus;
 import io.github.imashtak.echo.core.Bus;
 import io.github.imashtak.echo.core.SelfHandler;
 import io.quarkus.arc.Arc;
+import io.quarkus.arc.DefaultBean;
 import lombok.extern.log4j.Log4j2;
 import org.eclipse.microprofile.config.ConfigProvider;
 
+import javax.enterprise.context.Dependent;
 import javax.enterprise.inject.Produces;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -14,17 +16,16 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 @Log4j2
+@Dependent
 public class EchoQuarkusConfiguration {
 
     @Produces
+    @DefaultBean
     public Bus eventBus() {
         var options = Bus.Options.define();
 
@@ -41,7 +42,7 @@ public class EchoQuarkusConfiguration {
             .ifPresent(options::defaultParallelism);
 
         ConfigProvider.getConfig()
-            .getOptionalValue("echo.publishOverflowDelay", Boolean.class)
+            .getOptionalValue("echo.logEvents", Boolean.class)
             .ifPresent(options::logEvents);
 
         var bus = new Bus(options);
@@ -72,16 +73,17 @@ public class EchoQuarkusConfiguration {
         var reader = new BufferedReader(new InputStreamReader(stream));
         return reader.lines()
             .filter(line -> line.endsWith(".class"))
-            .map(line -> getClass(line, packageName))
+            .map(line -> getClass(line, packageName, classLoader))
+            .filter(Objects::nonNull)
             .collect(Collectors.toSet());
     }
 
-    private Class<?> getClass(String className, String packageName) {
+    private Class<?> getClass(String className, String packageName, ClassLoader classLoader) {
         try {
-            return Class.forName(packageName + "."
+            return classLoader.loadClass(packageName + "."
                 + className.substring(0, className.lastIndexOf('.')));
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
+        } catch (ClassNotFoundException ignored) {
+            return null;
         }
     }
 

@@ -1,6 +1,5 @@
 package io.github.imashtak.echo.core;
 
-import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
@@ -37,16 +36,12 @@ public class Bus {
     @Setter
     public static class Options {
 
-        @Builder.Default
         private Duration publishNonSerializableDelay = Duration.ofMillis(1);
 
-        @Builder.Default
         private Duration publishOverflowDelay = Duration.ofMillis(50);
 
-        @Builder.Default
         private int defaultParallelism = 7;
 
-        @Builder.Default
         private boolean logEvents = false;
 
         private Options() {

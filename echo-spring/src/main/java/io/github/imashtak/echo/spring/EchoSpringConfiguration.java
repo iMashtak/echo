@@ -53,7 +53,7 @@ public class EchoSpringConfiguration {
             options.defaultParallelism(defaultParallelism);
 
         var logEvents = environment
-            .getProperty("echo.publishOverflowDelay", Boolean.class);
+            .getProperty("echo.logEvents", Boolean.class);
         if (logEvents != null)
             options.logEvents(logEvents);
 

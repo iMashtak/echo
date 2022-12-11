@@ -1,10 +1,7 @@
 = Echo Framework
+:toc:
 
 Simple event-based framework for developing high concurrent applications wth event-based domain model.
-
-== Core Usage
-
-=== Getting started
 
 Add the following dependency in your `pom.xml`:
 
@@ -17,145 +14,181 @@ Add the following dependency in your `pom.xml`:
 </dependency>
 ----
 
-Write your first event:
+You may want to use this library in Spring application.
+If true you can add special dependency which will provide you annotation-based approach to register events and their handlers onto bus:
 
-[source,java]
+[source,xml]
 ----
-class MyEvent extends Event {
-
-    private final String key;
-
-    public MyEvent(String key) {
-        super();
-        this.key = key;
-    }
-
-    public MyEvent(Event parent, String key) {
-        super(parent);
-        this.key = key;
-    }
-
-    public String getKey() {
-        return key;
-    }
-}
+<dependency>
+    <groupId>io.github.imashtak</groupId>
+    <artifactId>echo-spring</artifactId>
+    <version>0.5.0</version>
+</dependency>
 ----
 
-Then register subscription for this event onto a bus:
+For Quarkus integration you need the following:
 
-[source,java]
+[source,xml]
 ----
-public class Main {
-    public static void main(String[] args) {
-        var bus = new Bus();
-        bus.subscribe(
-            MyEvent.class,
-            (e) -> System.out.println(e.getKey())
-        );
-    }
-}
+<dependency>
+    <groupId>io.github.imashtak</groupId>
+    <artifactId>echo-quarkus</artifactId>
+    <version>0.5.0</version>
+</dependency>
 ----
 
-And finally publish some events:
+For more information of such integrations read <<Usage with Spring>> or <<Usage with Quarkus>>.
 
-[source,java]
-----
-public class Main {
-    public static void main(String[] args) {
-        var bus = new Bus();
-        bus.subscribe(
-            MyEvent.class,
-            (e) -> System.out.println(e.getKey())
-        );
-
-        bus.publish(new MyEvent("k1")); // out: k1
-        bus.publish(new MyEvent("k2")); // out: k2
-        bus.publish(new MyEvent("k3")); // out: k3
-        Thread.sleep(1000);
-    }
-}
-----
-
-Subscription handler will be executed in other thread then `publish` calls, in async manner.
-
-=== Events
-
-
-=== Tasks
-
-`Task` is a subtype of `Event` which is ended with another event which is coled `Result`. `Result` may be `Success` or `Failure`.
-You can use tasks when it is needed to wait for some result of your task handling.
-
-So it enables you to do some synchronous operations in async manner.
-Example:
-
-[source,java]
-----
-public class Main {
-    public static void main(String[] args) {
-        var bus = new Bus();
-        // assuming MyTask extends Task
-        // assuming MySuccess extends Success
-        // assuming MyFailure extends Failure
-        var task = new MyTask();
-        bus.publish();
-        var result = bus.await(task).block();
-        if (result.isSuccess()) {}
-        else {}
-
-        // or more easy
-        var success = bus.publishAndAwaitSuccess(task).block();
-    }
-}
-----
-
-Cause Echo Framework uses https://projectreactor.io[Project Reactor] it is very simple to combine task processing with Spring Web Flux.
-
-=== SelfHandler
-
-`SelfHandler` interface makes usage of events a bit easier cause you gain a possibility to write handling-code right inside your event.
-Example:
-
-[source,java]
-----
-class MyEvent extends Event implements SelfHandler {
-    private final String key;
-
-    public MyEvent(String key) {
-        super();
-        this.key = key;
-    }
-
-    public MyEvent(Event parent, String key) {
-        super(parent);
-        this.key = key;
-    }
-
-    public String getKey() {
-        return key;
-    }
-
-    void handleSelf(Bus bus) {
-        System.out.println(key);
-    }
-}
-----
-
-So then it doesn't need to specify handling method to make a subscription:
-
-[source,java]
-----
-public class Main {
-    public static void main(String[] args) {
-        var bus = new Bus();
-        // handler discovers automatically
-        bus.subscribe(MyEvent.class);
-    }
-}
-----
+== Usage
 
 == Usage with Spring
 
+Requires JVM option `echo.packages.to.scan` (comma separated list of packages) to discover event locations. Example:
+[source,bash]
+----
+java -Decho.packages.to.scan=com.example.one,com.example.two ...
+----
+
+Package `echo-spring` provides three annotations:
+
+* `@Handler` -- marks that this class contains handlers of a number of events;
+* `@Handles` -- marks that this method is handler of some event;
+* `@HandlesExceptionsOf` -- marks that this method must be triggered if there will be any exception in `@Handles`-method. Scope of such handles consists of methods in `@Handler`-class.
+
+Also, this package provides Spring-configuration class called `EchoSpringConfiguration` which must be included to Spring application context, for example, in the following way:
+
+[source,java]
+----
+public class Application {
+    public static void main(String[] args) {
+        SpringApplication.run(
+            new Class[] {Application.class, EchoSpringConfiguration.class},
+            args
+        );
+    }
+}
+----
+
+After that you will have bean of type `Bus` in the application context with automatically registered event handlers based on mentioned annotations.
+
+There a number of ways how to declare handlers for auto registration.
+
+=== `SelfHandler` interface
+
+All events which implement interface `SelfHandler` will be auto registered.
+
+[source,java]
+----
+public class SomeEvent
+    extends Event
+    implements SelfHandler {
+    // implementation
+}
+----
+
+=== Static methods
+
+[source,java]
+----
+@Handler
+public class SomeHandler {
+
+    @Handles
+    public static void handler(SomeEvent e, Bus bus) {}
+
+    @HandlesExceptionsOf({SomeEvent.class})
+    public static void onException(SomeEvent e, Throwable ex, Bus bus) {}
+}
+----
+
+=== Bean
+
+[source,java]
+----
+@Handler
+public class SomeHandler {
+
+    private final Bus bus;
+
+    public SomeHandler(@Lazy Bus bus) {
+        this.bus = bus;
+    }
+
+    @Handles
+    public void handler(SomeEvent e) {}
+
+    @HandlesExceptionsOf({SomeEvent.class})
+    public void onException(SomeEvent e, Throwable ex) {}
+}
+----
+
+It is important to lazy wire `Bus` dependency.
 
 == Usage with Quarkus
+
+Requires JVM option `echo.packages.to.scan` (comma separated list of packages) to discover event locations. Example:
+[source,bash]
+----
+java -Decho.packages.to.scan=com.example.one,com.example.two ...
+----
+
+Package `echo-quarkus` provides three annotations:
+
+* `@Handler` -- marks that this class contains handlers of a number of events;
+* `@Handles` -- marks that this method is handler of some event;
+* `@HandlesExceptionsOf` -- marks that this method must be triggered if there will be any exception in `@Handles`-method. Scope of such handles consists of methods in `@Handler`-class.
+
+Also, this package provides Spring-configuration class called `EchoQuarkusConfiguration` which provides singleton instance of `Bus` to CDI. It automatically registers event handlers onto bus.
+
+There a number of ways how to declare handlers for auto registration.
+
+=== `SelfHandler` interface
+
+All events which implement interface `SelfHandler` will be auto registered.
+
+[source,java]
+----
+public class SomeEvent
+    extends Event
+    implements SelfHandler {
+    // implementation
+}
+----
+
+=== Static methods
+
+[source,java]
+----
+@Handler
+public class SomeHandler {
+
+    @Handles
+    public static void handler(SomeEvent e, Bus bus) {}
+
+    @HandlesExceptionsOf({SomeEvent.class})
+    public static void onException(SomeEvent e, Throwable ex, Bus bus) {}
+}
+----
+
+=== Bean
+
+[source,java]
+----
+@Handler
+public class SomeHandler {
+
+    private final Bus bus;
+
+    public SomeHandler(Bus bus) {
+        this.bus = bus;
+    }
+
+    @Handles
+    public void handler(SomeEvent e) {}
+
+    @HandlesExceptionsOf({SomeEvent.class})
+    public void onException(SomeEvent e, Throwable ex) {}
+}
+----
+
 
