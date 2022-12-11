@@ -1,13 +1,13 @@
 package io.github.imashtak.echo.core;
 
 import lombok.SneakyThrows;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class Tests {
 
@@ -43,6 +43,47 @@ public class Tests {
         assertEquals(1, tasks.get());
         assertEquals(1, successes.get());
         assertEquals(0, failures.get());
+    }
+
+    @Test
+    @SneakyThrows
+    public void testTaskAwaitingSuccess() {
+        var tasks = new AtomicInteger(0);
+        var successes = new AtomicInteger(0);
+        var failures = new AtomicInteger(0);
+        var bus = new Bus();
+        bus.subscribeOn(TestSimpleTask.class, t -> {
+            tasks.incrementAndGet();
+            bus.publish(new TestSimpleSuccess(t));
+        }, (e, ex) -> {
+        });
+        bus.subscribeOn(TestSimpleSuccess.class, e -> successes.incrementAndGet(), (e, ex) -> {
+        });
+        bus.subscribeOn(TestSimpleFailure.class, e -> failures.incrementAndGet(), (e, ex) -> {
+        });
+        bus.suspendForSuccess(new TestSimpleTask()).block();
+        assertEquals(1, tasks.get());
+        assertEquals(1, successes.get());
+        assertEquals(0, failures.get());
+    }
+
+    @Test
+    @SneakyThrows
+    public void testTaskAwaitingFailureWhileItIsSuccess() {
+        var tasks = new AtomicInteger(0);
+        var successes = new AtomicInteger(0);
+        var failures = new AtomicInteger(0);
+        var bus = new Bus();
+        bus.subscribeOn(TestSimpleTask.class, t -> {
+            tasks.incrementAndGet();
+            bus.publish(new TestSimpleSuccess(t));
+        }, (e, ex) -> {
+        });
+        bus.subscribeOn(TestSimpleSuccess.class, e -> successes.incrementAndGet(), (e, ex) -> {
+        });
+        bus.subscribeOn(TestSimpleFailure.class, e -> failures.incrementAndGet(), (e, ex) -> {
+        });
+        Assertions.assertThrows(IllegalStateException.class, () -> bus.suspendForFailure(new TestSimpleTask()).block());
     }
 
     @Test

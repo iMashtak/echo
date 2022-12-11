@@ -10,7 +10,7 @@ Add the following dependency in your `pom.xml`:
 <dependency>
     <groupId>io.github.imashtak</groupId>
     <artifactId>echo-core</artifactId>
-    <version>0.5.0</version>
+    <version>0.6.0</version>
 </dependency>
 ----
 
@@ -22,7 +22,7 @@ If true you can add special dependency which will provide you annotation-based a
 <dependency>
     <groupId>io.github.imashtak</groupId>
     <artifactId>echo-spring</artifactId>
-    <version>0.5.0</version>
+    <version>0.6.0</version>
 </dependency>
 ----
 
@@ -33,13 +33,168 @@ For Quarkus integration you need the following:
 <dependency>
     <groupId>io.github.imashtak</groupId>
     <artifactId>echo-quarkus</artifactId>
-    <version>0.5.0</version>
+    <version>0.6.0</version>
 </dependency>
 ----
 
 For more information of such integrations read <<Usage with Spring>> or <<Usage with Quarkus>>.
 
 == Usage
+
+=== Events
+
+There are two main concepts: `Event` and `Bus`. You can publish event on bus and then subscribe to the type of that event to somehow handle it. It is not required to handle every event on the bus.
+
+Let's start with simple event named `SignInInitiated`:
+
+[source,java]
+----
+@Getter
+public class SignInInitiated extends Event {
+    private final String username;
+    private final String password;
+
+    public SignInInitiated(String username, String password) {
+        super();
+        this.username = username;
+        this.password = password;
+    }
+}
+----
+
+Then we may create the bus and add to it handling method which will raises when event of type `SignInInitiated` will bbe published onto bus:
+
+[source,java]
+----
+public class Main {
+    public static void main(String[] args){
+        // Bus instance required
+        var bus = new Bus();
+
+        // Adding handling method and exception resolver
+        bus.subscribeOn(SignInInitiated.class,
+            e -> {
+                System.out.println("User '%s' signing in...".formatted(e.getUsername()));
+            },
+            (e, ex) -> {
+                System.out.println("Something go wrong!");
+            }
+        );
+
+        // Publishing event onto bus
+        bus.publish(new SignInInitiated("user", "passwd"));
+    }
+}
+----
+
+Method `Bus::subscribeOn` is non-blocking, all handles will be executed in different threads.
+
+So `Event` is a portion of data which can be handled asynchronously.
+
+Each event carries a `Flow` -- special amount of data purposed to hold information about chain of events -- for tracing or debug stuff.
+
+=== Tasks
+
+What if we need to so some synchronous thing? For example, not just to react on users sign in, but also validate password, generate and return session token? Here comes `Task`, `Result`, `Succcess` and `Failure` classes.
+
+Firstly we will change source code of `SignInInitiated` to the following:
+
+[source,java]
+----
+@Getter
+public class SignInInitiated extends Task<Failed, Succeed> {
+    private final String username;
+    private final String password;
+
+    public SignInInitiated(String username, String password) {
+        super();
+        this.username = username;
+        this.password = password;
+    }
+
+    @Getter
+    public static class Succeed extends Success {
+        private final String token;
+
+        public Succeed(Task<?, ?> task, String token) {
+            super(task);
+            this.token = token;
+        }
+    }
+
+    public static class Failed extends Failure {
+        public Failed(Task<?, ?> task, Throwable cause) {
+            super(task, cause);
+        }
+    }
+}
+----
+
+After that we are becoming to have an ability to await result of task -- success or failure. Bus-connected code is following:
+
+[source,java]
+----
+public class Main {
+    public static void main(String[] args){
+        // Bus instance required
+        var bus = new Bus();
+
+        // Adding handling method and exception resolver
+        bus.subscribeOn(SignInInitiated.class,
+            e -> {
+                System.out.println("User '%s' signing in...".formatted(e.getUsername()));
+                bus.publish(new SignInInitiated.Succeed(e, "token"));
+            },
+            (e, ex) -> {
+                System.out.println("Something go wrong!");
+                bus.publish(new SignInInitiated.Failed(e, ex));
+            }
+        );
+
+        // Publishing task onto bus
+        var task = new SignInInitiated("user", "passwd");
+        bus.publish(task);
+        // Awaiting result
+        Mono<Result> resultAsync = bus.await(task);
+
+        // Dealing with result
+        var result = resultAsync.block();
+        if (result.isSuccess()) {}
+        else {}
+    }
+}
+----
+
+=== `SelfHandler` interface
+
+Sometimes it is easier to be more "object-oriented" and place handling method near the data. `SelfHandler` interface provides that thing. Code is clear:
+
+[source,java]
+----
+@Getter
+public class SignInInitiated extends Event implements SelfHandler {
+    private final String username;
+    private final String password;
+
+    public SignInInitiated(String username, String password) {
+        super();
+        this.username = username;
+        this.password = password;
+    }
+
+    @Override
+    public void handleSelf(Bus bus) {
+        // any code
+    }
+}
+----
+
+After that patch the following code is enough to register handler onto bus:
+
+[source,java]
+----
+bus.subscribeOn(SignInInitiated.class);
+----
 
 == Usage with Spring
 

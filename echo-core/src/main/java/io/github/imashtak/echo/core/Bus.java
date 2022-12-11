@@ -184,9 +184,51 @@ public class Bus {
         });
     }
 
+    @SuppressWarnings("unchecked")
+    public <T extends Success> Mono<T> awaitSuccess(Task<?, T> task) {
+        return taskResults.get(task.id()).asMono()
+            .map(r -> {
+                taskResults.remove(task.id());
+                return r;
+            })
+            .map(r -> {
+                if (r.isSuccess()) {
+                    return (T) r;
+                } else {
+                    throw new IllegalStateException();
+                }
+            });
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T extends Failure> Mono<T> awaitFailure(Task<T, ?> task) {
+        return taskResults.get(task.id()).asMono()
+            .map(r -> {
+                taskResults.remove(task.id());
+                return r;
+            })
+            .map(r -> {
+                if (r.isFailure()) {
+                    return (T) r;
+                } else {
+                    throw new IllegalStateException();
+                }
+            });
+    }
+
     public Mono<Result> suspend(Task<?, ?> task) {
         publish(task);
         return await(task);
+    }
+
+    public <T extends Success> Mono<T> suspendForSuccess(Task<?, T> task) {
+        publish(task);
+        return awaitSuccess(task);
+    }
+
+    public <T extends Failure> Mono<T> suspendForFailure(Task<T, ?> task) {
+        publish(task);
+        return awaitFailure(task);
     }
 
     public Flux<Result> suspend(Work work) {
