@@ -11,13 +11,19 @@ public abstract class Event {
     private final Instant createdAt;
     private final Flow flow;
 
-    protected Event() {
+    public Event() {
         this.flow = new Flow();
         this.id = UUID.randomUUID();
         this.createdAt = Instant.now();
     }
 
-    protected Event(Event parent) {
+    public Event(Flow flow) {
+        this.flow = flow;
+        this.id = UUID.randomUUID();
+        this.createdAt = Instant.now();
+    }
+
+    public Event(Event parent) {
         this.flow = parent.flow();
         this.id = UUID.randomUUID();
         this.createdAt = Instant.now();

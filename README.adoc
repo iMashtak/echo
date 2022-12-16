@@ -279,6 +279,10 @@ public class SomeHandler {
 
 It is important to lazy wire `Bus` dependency.
 
+=== Flow
+
+All events have flow associated with them -- mostly for tracing reasons. Also flow can hold initiator id in its field `Flow::initiator`. You can use it in any way you want.
+
 == Usage with Quarkus
 
 Requires JVM option `echo.packages.to.scan` (comma separated list of packages) to discover event locations. Example:
