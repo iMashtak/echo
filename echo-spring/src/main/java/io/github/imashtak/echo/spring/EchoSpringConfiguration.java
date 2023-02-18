@@ -2,11 +2,12 @@ package io.github.imashtak.echo.spring;
 
 
 import io.github.imashtak.echo.core.Bus;
+import io.github.imashtak.echo.core.Event;
 import io.github.imashtak.echo.core.SelfHandler;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.BeanCurrentlyInCreationException;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -28,13 +29,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Configuration
 @Log4j2
+@RequiredArgsConstructor
 public class EchoSpringConfiguration {
 
-    @Autowired
-    ApplicationContext context;
+    private final ApplicationContext context;
+
+    private final Environment environment;
 
     @Bean
-    public Bus echoBus(Environment environment) {
+    public Bus echoBus() {
         var options = Bus.Options.define();
 
         var publishNonSerializableDelay = environment
@@ -69,7 +72,7 @@ public class EchoSpringConfiguration {
         scanner.resetFilters(false);
         scanner.addIncludeFilter(new AnnotationTypeFilter(Handler.class));
         scanner.addIncludeFilter(new AssignableTypeFilter(SelfHandler.class));
-        scanner.scan(System.getProperty("echo.packages.to.scan").split(","));
+        scanner.scan(environment.getProperty("echo.packages.to.scan").split(","));
         Arrays.stream(registry.getBeanDefinitionNames())
             .filter(name -> !name.startsWith("org.spring"))
             .map(name -> {
@@ -93,10 +96,10 @@ public class EchoSpringConfiguration {
         try {
             bean.set(context.getBean(type));
         } catch (BeanCurrentlyInCreationException ex) {
-            log.error("Error while auto registering handlers on bus: do not inject bus directly via constructor. Use @Lazy or another injection methods", ex);
-            throw new RuntimeException(ex);
+            throw new RuntimeException("Error while auto registering handlers on bus: do not inject bus directly " +
+                "via constructor. Use @Lazy or another injection methods", ex);
         } catch (NoSuchBeanDefinitionException ex) {
-            log.info("Not found bean of type: %s. Expecting @Handles methods are static".formatted(type.getName()));
+            log.debug("Not found bean of type: %s. Expecting @Handles methods are static".formatted(type.getName()), ex);
         }
         var handleMethods = Arrays.stream(type.getMethods())
             .filter(x -> x.isAnnotationPresent(Handles.class))
@@ -113,15 +116,19 @@ public class EchoSpringConfiguration {
             });
         for (var handleMethod : handleMethods) {
             var eventType = handleMethod.getAnnotation(Handles.class).value();
-            if (bean.get() == null && !Modifier.isStatic(eventType.getModifiers())) {
-                throw new IllegalStateException("@Handles method must be static");
+            if (bean.get() == null && !Modifier.isStatic(handleMethod.getModifiers())) {
+                throw new IllegalStateException("@Handles method must be static for type '%s' in class '%s'"
+                    .formatted(eventType.getName(), type.getName()));
             }
             var exHandlerMethod = eventTypeToExceptionHandleMethod.get(eventType);
             if (exHandlerMethod == null) {
-                throw new RuntimeException("not found exception handler for type: " + eventType.getName());
+                throw new RuntimeException(("Exception handler (method annotated with @HandlesExceptionsOf) " +
+                    "not found for type '%s' in class '%s'").formatted(eventType.getName(), type.getName()));
             }
+            checkHandlerParameterTypes(handleMethod);
+            checkExceptionHandlerParameterTypes(exHandlerMethod);
             if (eventType.isAnnotation()) {
-                log.info(() -> "Auto subscribing on events annotated by: " + eventType.getName());
+                log.info("Auto subscribing on events annotated by: {}", eventType.getName());
                 bus.subscribeOnAnnotated(eventType.asSubclass(Annotation.class), x -> {
                     try {
                         if (bean.get() == null) {
@@ -144,7 +151,7 @@ public class EchoSpringConfiguration {
                     }
                 });
             } else {
-                log.info(() -> "Auto subscribing on events of type: " + eventType.getName());
+                log.info("Auto subscribing on events of type: {}", eventType.getName());
                 bus.subscribeOn(eventType, x -> {
                     try {
                         if (bean.get() == null) {
@@ -175,5 +182,51 @@ public class EchoSpringConfiguration {
         var ok = Arrays.asList(type.getInterfaces()).contains(SelfHandler.class);
         if (!ok) return;
         bus.subscribeOn((Class<? extends SelfHandler>) type);
+    }
+
+    private void checkHandlerParameterTypes(Method method) {
+        var parameterTypes = method.getParameterTypes();
+        if (Modifier.isStatic(method.getModifiers())) {
+            if (parameterTypes.length != 2 ||
+                !Event.class.isAssignableFrom(parameterTypes[0]) ||
+                !Bus.class.equals(parameterTypes[1])
+            ) {
+                throw new IllegalStateException("@Handles method '%s#%s' has incorrect signature"
+                    .formatted(method.getDeclaringClass().getName(), method.getName())
+                );
+            }
+        } else {
+            if (parameterTypes.length != 1 ||
+                !Event.class.isAssignableFrom(parameterTypes[0])
+            ) {
+                throw new IllegalStateException("@Handles method '%s#%s' has incorrect signature"
+                    .formatted(method.getDeclaringClass().getName(), method.getName())
+                );
+            }
+        }
+    }
+
+    private void checkExceptionHandlerParameterTypes(Method method) {
+        var parameterTypes = method.getParameterTypes();
+        if (Modifier.isStatic(method.getModifiers())) {
+            if (parameterTypes.length != 3 ||
+                !Event.class.isAssignableFrom(parameterTypes[0]) ||
+                !Throwable.class.equals(parameterTypes[1]) ||
+                !Bus.class.equals(parameterTypes[2])
+            ) {
+                throw new IllegalStateException("@HandlesExceptionsOf method '%s#%s' has incorrect signature"
+                    .formatted(method.getDeclaringClass().getName(), method.getName())
+                );
+            }
+        } else {
+            if (parameterTypes.length != 2 ||
+                !Event.class.isAssignableFrom(parameterTypes[0]) ||
+                !Throwable.class.equals(parameterTypes[1])
+            ) {
+                throw new IllegalStateException("@HandlesExceptionsOf method '%s#%s' has incorrect signature"
+                    .formatted(method.getDeclaringClass().getName(), method.getName())
+                );
+            }
+        }
     }
 }

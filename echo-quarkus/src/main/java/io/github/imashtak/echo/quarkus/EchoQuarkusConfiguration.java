@@ -51,7 +51,7 @@ public class EchoQuarkusConfiguration {
     }
 
     private void registerEventHandlers(Bus bus) {
-        var packages = System.getProperty("echo.packages.to.scan").split(",");
+        var packages = ConfigProvider.getConfig().getValues("echo.packages.to.scan", String.class);
         var classes = new HashSet<Class<?>>();
         for (var x : packages) {
             var found = findAllClasses(x, Thread.currentThread().getContextClassLoader());
@@ -95,6 +95,8 @@ public class EchoQuarkusConfiguration {
             if (instance.isAvailable()) {
                 bean.set(instance.get());
             }
+        } catch (Exception e) {
+            log.debug("Not found bean of type: %s. Expecting @Handles methods are static".formatted(type.getName()));
         }
         var handleMethods = Arrays.stream(type.getMethods())
             .filter(x -> x.isAnnotationPresent(Handles.class))
@@ -111,7 +113,7 @@ public class EchoQuarkusConfiguration {
             });
         for (var handleMethod : handleMethods) {
             var eventType = handleMethod.getAnnotation(Handles.class).value();
-            if (bean.get() == null && !Modifier.isStatic(eventType.getModifiers())) {
+            if (bean.get() == null && !Modifier.isStatic(handleMethod.getModifiers())) {
                 throw new IllegalStateException("@Handles method must be static");
             }
             var exHandlerMethod = eventTypeToExceptionHandleMethod.get(eventType);

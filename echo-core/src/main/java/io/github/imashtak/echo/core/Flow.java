@@ -10,17 +10,17 @@ import java.util.UUID;
 public class Flow {
     private final UUID id;
     private final Instant createdAt;
-    private final Optional<String> initiator;
+    private final Optional<Object> creator;
 
     public Flow() {
         this.id = UUID.randomUUID();
         this.createdAt = Instant.now();
-        this.initiator = Optional.empty();
+        this.creator = Optional.empty();
     }
 
-    public Flow(String initiator) {
+    public Flow(Object creator) {
         this.id = UUID.randomUUID();
         this.createdAt = Instant.now();
-        this.initiator = Optional.of(initiator);
+        this.creator = Optional.of(creator);
     }
 }

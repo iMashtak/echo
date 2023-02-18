@@ -2,21 +2,20 @@ package io.github.imashtak.echo.spring;
 
 import io.github.imashtak.echo.core.Bus;
 import io.github.imashtak.echo.core.Event;
-import io.github.imashtak.echo.core.SelfHandler;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class TestSelfHandlerEvent extends Event implements SelfHandler {
+@Handler
+public class TestStaticEventHandler {
 
     public static final AtomicInteger handles = new AtomicInteger(0);
 
-    @Override
-    public void handleSelf(Bus bus) {
+    @Handles(TestSimpleFirstEvent.class)
+    public static void handles(TestSimpleFirstEvent event, Bus bus) {
         handles.incrementAndGet();
     }
-
-    @Override
-    public void onException(Bus bus, Throwable ex) {
+    @HandlesExceptionsOf({TestSimpleFirstEvent.class})
+    public static void onException(Event event, Throwable ex, Bus bus) {
 
     }
 }

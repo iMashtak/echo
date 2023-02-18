@@ -62,7 +62,7 @@ public class SignInInitiated extends Event {
 }
 ----
 
-Then we may create the bus and add to it handling method which will raises when event of type `SignInInitiated` will bbe published onto bus:
+Then we may create the bus and add subscription to it. Subscription method (handling method) will be called each time when event of type `SignInInitiated` will be published onto bus:
 
 [source,java]
 ----
@@ -87,9 +87,9 @@ public class Main {
 }
 ----
 
-Method `Bus::subscribeOn` is non-blocking, all handles will be executed in different threads.
+Method `Bus::subscribeOn` is non-blocking and all handles will be executed in different threads.
 
-So `Event` is a portion of data which can be handled asynchronously.
+So `Event` is just a portion of data which can be handled asynchronously.
 
 Each event carries a `Flow` -- special amount of data purposed to hold information about chain of events -- for tracing or debug stuff.
 
@@ -130,7 +130,7 @@ public class SignInInitiated extends Task<Failed, Succeed> {
 }
 ----
 
-After that we are becoming to have an ability to await result of task -- success or failure. Bus-connected code is following:
+After that we have become to have an ability to await result of task -- success or failure. Bus-connected code is following:
 
 [source,java]
 ----
@@ -167,7 +167,7 @@ public class Main {
 
 === `SelfHandler` interface
 
-Sometimes it is easier to be more "object-oriented" and place handling method near the data. `SelfHandler` interface provides that thing. Code is clear:
+Sometimes it is easier to be more "object-oriented" and place handling method near the data. `SelfHandler` interface provides that. Code is clear:
 
 [source,java]
 ----
@@ -184,7 +184,10 @@ public class SignInInitiated extends Event implements SelfHandler {
 
     @Override
     public void handleSelf(Bus bus) {
-        // any code
+    }
+
+    @Override
+    public void onException(Bus bus, Throwable ex) {
     }
 }
 ----
@@ -260,6 +263,7 @@ public class SomeHandler {
 
 [source,java]
 ----
+@Component
 @Handler
 public class SomeHandler {
 
@@ -281,7 +285,7 @@ It is important to lazy wire `Bus` dependency.
 
 === Flow
 
-All events have flow associated with them -- mostly for tracing reasons. Also flow can hold initiator id in its field `Flow::initiator`. You can use it in any way you want.
+All events have flow associated with them -- mostly for tracing reasons. Also flow can hold initiator info in its field `Flow::initiator`. You can use it in any way you want.
 
 == Usage with Quarkus
 
@@ -297,7 +301,7 @@ Package `echo-quarkus` provides three annotations:
 * `@Handles` -- marks that this method is handler of some event;
 * `@HandlesExceptionsOf` -- marks that this method must be triggered if there will be any exception in `@Handles`-method. Scope of such handles consists of methods in `@Handler`-class.
 
-Also, this package provides Spring-configuration class called `EchoQuarkusConfiguration` which provides singleton instance of `Bus` to CDI. It automatically registers event handlers onto bus.
+Also, this package provides Quarkus-configuration class called `EchoQuarkusConfiguration` which provides singleton instance of `Bus` to CDI. It automatically registers event handlers onto bus.
 
 There a number of ways how to declare handlers for auto registration.
 
@@ -333,6 +337,7 @@ public class SomeHandler {
 
 [source,java]
 ----
+@ApplicationScoped
 @Handler
 public class SomeHandler {
 
