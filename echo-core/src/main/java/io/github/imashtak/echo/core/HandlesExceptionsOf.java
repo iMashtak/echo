@@ -1,4 +1,4 @@
-package io.github.imashtak.echo.spring;
+package io.github.imashtak.echo.core;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -7,6 +7,6 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD})
-public @interface Handles {
-    Class<?> value();
+public @interface HandlesExceptionsOf {
+    Class<?>[] value();
 }

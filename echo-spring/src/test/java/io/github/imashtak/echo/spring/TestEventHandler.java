@@ -1,7 +1,6 @@
 package io.github.imashtak.echo.spring;
 
-import io.github.imashtak.echo.core.Bus;
-import io.github.imashtak.echo.core.Event;
+import io.github.imashtak.echo.core.*;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 

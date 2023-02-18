@@ -1,7 +1,6 @@
 package io.github.imashtak.echo.quarkus;
 
-import io.github.imashtak.echo.core.Bus;
-import io.github.imashtak.echo.core.Event;
+import io.github.imashtak.echo.core.*;
 
 @Handler
 public class TestStaticEventHandler {

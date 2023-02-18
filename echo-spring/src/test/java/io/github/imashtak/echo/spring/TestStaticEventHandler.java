@@ -1,7 +1,6 @@
 package io.github.imashtak.echo.spring;
 
-import io.github.imashtak.echo.core.Bus;
-import io.github.imashtak.echo.core.Event;
+import io.github.imashtak.echo.core.*;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -14,6 +13,7 @@ public class TestStaticEventHandler {
     public static void handles(TestSimpleFirstEvent event, Bus bus) {
         handles.incrementAndGet();
     }
+
     @HandlesExceptionsOf({TestSimpleFirstEvent.class})
     public static void onException(Event event, Throwable ex, Bus bus) {
 

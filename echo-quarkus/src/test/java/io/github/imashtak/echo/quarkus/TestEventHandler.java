@@ -1,14 +1,13 @@
 package io.github.imashtak.echo.quarkus;
 
-import io.github.imashtak.echo.core.Bus;
-import io.github.imashtak.echo.core.Event;
+import io.github.imashtak.echo.core.*;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@Handler
 @ApplicationScoped
+@Handler
 public class TestEventHandler {
     public static final AtomicInteger handles = new AtomicInteger(0);
 

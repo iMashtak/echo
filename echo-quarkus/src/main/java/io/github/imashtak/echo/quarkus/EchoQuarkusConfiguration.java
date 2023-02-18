@@ -1,8 +1,7 @@
 package io.github.imashtak.echo.quarkus;
 
+import io.github.imashtak.echo.core.AutoDiscovery;
 import io.github.imashtak.echo.core.Bus;
-import io.github.imashtak.echo.core.Event;
-import io.github.imashtak.echo.core.SelfHandler;
 import io.quarkus.arc.Arc;
 import io.quarkus.arc.DefaultBean;
 import lombok.extern.log4j.Log4j2;
@@ -12,13 +11,11 @@ import javax.enterprise.context.Dependent;
 import javax.enterprise.inject.Produces;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -46,26 +43,24 @@ public class EchoQuarkusConfiguration {
             .getOptionalValue("echo.logEvents", Boolean.class)
             .ifPresent(options::logEvents);
 
-        var bus = new Bus(options);
-        registerEventHandlers(bus);
-        return bus;
-    }
-
-    private void registerEventHandlers(Bus bus) {
         var packages = ConfigProvider.getConfig().getValues("echo.packages.to.scan", String.class);
-        var classes = new HashSet<Class<?>>();
+        var types = new HashSet<Class<?>>();
         for (var x : packages) {
             var found = findAllClasses(x, Thread.currentThread().getContextClassLoader());
-            classes.addAll(found);
+            types.addAll(found);
         }
-        for (var clazz : classes) {
-            if (clazz.isAnnotationPresent(Handler.class)) {
-                processAsHandler(clazz, bus);
+        return AutoDiscovery.auto(options, types, (type) -> {
+            try (var instance = Arc.container().instance(type)) {
+                if (instance.isAvailable()) {
+                    return Optional.of(instance.get());
+                } else {
+                    return Optional.empty();
+                }
+            } catch (Exception e) {
+                log.debug("Not found bean of type: %s. Expecting @Handles methods are static".formatted(type.getName()));
+                return Optional.empty();
             }
-            if (SelfHandler.class.isAssignableFrom(clazz)) {
-                processAsSelfHandler(clazz, bus);
-            }
-        }
+        });
     }
 
     private Set<Class<?>> findAllClasses(String packageName, ClassLoader classLoader) {
@@ -85,146 +80,6 @@ public class EchoQuarkusConfiguration {
                 + className.substring(0, className.lastIndexOf('.')));
         } catch (ClassNotFoundException ignored) {
             return null;
-        }
-    }
-
-    private void processAsHandler(Class<?> type, Bus bus) {
-        var ok = type.isAnnotationPresent(Handler.class);
-        if (!ok) return;
-        var bean = new AtomicReference<>(null);
-        try (var instance = Arc.container().instance(type)) {
-            if (instance.isAvailable()) {
-                bean.set(instance.get());
-            }
-        } catch (Exception e) {
-            log.debug("Not found bean of type: %s. Expecting @Handles methods are static".formatted(type.getName()));
-        }
-        var handleMethods = Arrays.stream(type.getMethods())
-            .filter(x -> x.isAnnotationPresent(Handles.class))
-            .toList();
-        var eventTypeToExceptionHandleMethod = new HashMap<Class<?>, Method>();
-        Arrays.stream(type.getMethods())
-            .filter(x -> x.isAnnotationPresent(HandlesExceptionsOf.class))
-            .forEach(x -> {
-                var a = x.getAnnotation(HandlesExceptionsOf.class);
-                var classes = a.value();
-                for (var c : classes) {
-                    eventTypeToExceptionHandleMethod.put(c, x);
-                }
-            });
-        for (var handleMethod : handleMethods) {
-            var eventType = handleMethod.getAnnotation(Handles.class).value();
-            if (bean.get() == null && !Modifier.isStatic(handleMethod.getModifiers())) {
-                throw new IllegalStateException("@Handles method must be static for type '%s' in class '%s'"
-                    .formatted(eventType.getName(), type.getName()));
-            }
-            var exHandlerMethod = eventTypeToExceptionHandleMethod.get(eventType);
-            if (exHandlerMethod == null) {
-                throw new RuntimeException(("Exception handler (method annotated with @HandlesExceptionsOf) " +
-                    "not found for type '%s' in class '%s'").formatted(eventType.getName(), type.getName()));
-            }
-            checkHandlerParameterTypes(handleMethod);
-            checkExceptionHandlerParameterTypes(exHandlerMethod);
-            if (eventType.isAnnotation()) {
-                log.info(() -> "Auto subscribing on events annotated by: " + eventType.getName());
-                bus.subscribeOnAnnotated(eventType.asSubclass(Annotation.class), x -> {
-                    try {
-                        if (bean.get() == null) {
-                            handleMethod.invoke(null, x, bus);
-                        } else {
-                            handleMethod.invoke(bean.get(), x);
-                        }
-                    } catch (IllegalAccessException | InvocationTargetException e) {
-                        throw new RuntimeException(e);
-                    }
-                }, (e, ex) -> {
-                    try {
-                        if (bean.get() == null) {
-                            exHandlerMethod.invoke(null, e, ex, bus);
-                        } else {
-                            exHandlerMethod.invoke(bean.get(), e, ex);
-                        }
-                    } catch (IllegalAccessException | InvocationTargetException exc) {
-                        throw new RuntimeException(exc);
-                    }
-                });
-            } else {
-                log.info(() -> "Auto subscribing on events of type: " + eventType.getName());
-                bus.subscribeOn(eventType, x -> {
-                    try {
-                        if (bean.get() == null) {
-                            handleMethod.invoke(null, x, bus);
-                        } else {
-                            handleMethod.invoke(bean.get(), x);
-                        }
-                    } catch (IllegalAccessException | InvocationTargetException e) {
-                        throw new RuntimeException(e);
-                    }
-                }, (e, ex) -> {
-                    try {
-                        if (bean.get() == null) {
-                            exHandlerMethod.invoke(null, e, ex, bus);
-                        } else {
-                            exHandlerMethod.invoke(bean.get(), e, ex);
-                        }
-                    } catch (IllegalAccessException | InvocationTargetException exc) {
-                        throw new RuntimeException(exc);
-                    }
-                });
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void processAsSelfHandler(Class<?> type, Bus bus) {
-        var ok = Arrays.asList(type.getInterfaces()).contains(SelfHandler.class);
-        if (!ok) return;
-        bus.subscribeOn((Class<? extends SelfHandler>) type);
-    }
-
-    private void checkHandlerParameterTypes(Method method) {
-        var parameterTypes = method.getParameterTypes();
-        if (Modifier.isStatic(method.getModifiers())) {
-            if (parameterTypes.length != 2 ||
-                !Event.class.isAssignableFrom(parameterTypes[0]) ||
-                !Bus.class.equals(parameterTypes[1])
-            ) {
-                throw new IllegalStateException("@Handles method '%s#%s' has incorrect signature"
-                    .formatted(method.getDeclaringClass().getName(), method.getName())
-                );
-            }
-        } else {
-            if (parameterTypes.length != 1 ||
-                !Event.class.isAssignableFrom(parameterTypes[0])
-            ) {
-                throw new IllegalStateException("@Handles method '%s#%s' has incorrect signature"
-                    .formatted(method.getDeclaringClass().getName(), method.getName())
-                );
-            }
-        }
-    }
-
-    private void checkExceptionHandlerParameterTypes(Method method) {
-        var parameterTypes = method.getParameterTypes();
-        if (Modifier.isStatic(method.getModifiers())) {
-            if (parameterTypes.length != 3 ||
-                !Event.class.isAssignableFrom(parameterTypes[0]) ||
-                !Throwable.class.equals(parameterTypes[1]) ||
-                !Bus.class.equals(parameterTypes[2])
-            ) {
-                throw new IllegalStateException("@HandlesExceptionsOf method '%s#%s' has incorrect signature"
-                    .formatted(method.getDeclaringClass().getName(), method.getName())
-                );
-            }
-        } else {
-            if (parameterTypes.length != 2 ||
-                !Event.class.isAssignableFrom(parameterTypes[0]) ||
-                !Throwable.class.equals(parameterTypes[1])
-            ) {
-                throw new IllegalStateException("@HandlesExceptionsOf method '%s#%s' has incorrect signature"
-                    .formatted(method.getDeclaringClass().getName(), method.getName())
-                );
-            }
         }
     }
 }

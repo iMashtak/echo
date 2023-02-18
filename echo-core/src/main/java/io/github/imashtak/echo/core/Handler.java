@@ -1,4 +1,4 @@
-package io.github.imashtak.echo.quarkus;
+package io.github.imashtak.echo.core;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
