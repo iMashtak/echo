@@ -14,4 +14,9 @@ public class TestSelfHandlerEvent extends Event implements SelfHandler {
     public void handleSelf(Bus bus) {
         handles.incrementAndGet();
     }
+
+    @Override
+    public void onException(Bus bus, Throwable ex) {
+
+    }
 }

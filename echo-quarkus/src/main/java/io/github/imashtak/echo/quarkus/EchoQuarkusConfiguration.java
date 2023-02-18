@@ -1,6 +1,7 @@
 package io.github.imashtak.echo.quarkus;
 
 import io.github.imashtak.echo.core.Bus;
+import io.github.imashtak.echo.core.Event;
 import io.github.imashtak.echo.core.SelfHandler;
 import io.quarkus.arc.Arc;
 import io.quarkus.arc.DefaultBean;
@@ -114,12 +115,16 @@ public class EchoQuarkusConfiguration {
         for (var handleMethod : handleMethods) {
             var eventType = handleMethod.getAnnotation(Handles.class).value();
             if (bean.get() == null && !Modifier.isStatic(handleMethod.getModifiers())) {
-                throw new IllegalStateException("@Handles method must be static");
+                throw new IllegalStateException("@Handles method must be static for type '%s' in class '%s'"
+                    .formatted(eventType.getName(), type.getName()));
             }
             var exHandlerMethod = eventTypeToExceptionHandleMethod.get(eventType);
             if (exHandlerMethod == null) {
-                throw new RuntimeException("not found exception handler for type: " + eventType.getName());
+                throw new RuntimeException(("Exception handler (method annotated with @HandlesExceptionsOf) " +
+                    "not found for type '%s' in class '%s'").formatted(eventType.getName(), type.getName()));
             }
+            checkHandlerParameterTypes(handleMethod);
+            checkExceptionHandlerParameterTypes(exHandlerMethod);
             if (eventType.isAnnotation()) {
                 log.info(() -> "Auto subscribing on events annotated by: " + eventType.getName());
                 bus.subscribeOnAnnotated(eventType.asSubclass(Annotation.class), x -> {
@@ -175,5 +180,51 @@ public class EchoQuarkusConfiguration {
         var ok = Arrays.asList(type.getInterfaces()).contains(SelfHandler.class);
         if (!ok) return;
         bus.subscribeOn((Class<? extends SelfHandler>) type);
+    }
+
+    private void checkHandlerParameterTypes(Method method) {
+        var parameterTypes = method.getParameterTypes();
+        if (Modifier.isStatic(method.getModifiers())) {
+            if (parameterTypes.length != 2 ||
+                !Event.class.isAssignableFrom(parameterTypes[0]) ||
+                !Bus.class.equals(parameterTypes[1])
+            ) {
+                throw new IllegalStateException("@Handles method '%s#%s' has incorrect signature"
+                    .formatted(method.getDeclaringClass().getName(), method.getName())
+                );
+            }
+        } else {
+            if (parameterTypes.length != 1 ||
+                !Event.class.isAssignableFrom(parameterTypes[0])
+            ) {
+                throw new IllegalStateException("@Handles method '%s#%s' has incorrect signature"
+                    .formatted(method.getDeclaringClass().getName(), method.getName())
+                );
+            }
+        }
+    }
+
+    private void checkExceptionHandlerParameterTypes(Method method) {
+        var parameterTypes = method.getParameterTypes();
+        if (Modifier.isStatic(method.getModifiers())) {
+            if (parameterTypes.length != 3 ||
+                !Event.class.isAssignableFrom(parameterTypes[0]) ||
+                !Throwable.class.equals(parameterTypes[1]) ||
+                !Bus.class.equals(parameterTypes[2])
+            ) {
+                throw new IllegalStateException("@HandlesExceptionsOf method '%s#%s' has incorrect signature"
+                    .formatted(method.getDeclaringClass().getName(), method.getName())
+                );
+            }
+        } else {
+            if (parameterTypes.length != 2 ||
+                !Event.class.isAssignableFrom(parameterTypes[0]) ||
+                !Throwable.class.equals(parameterTypes[1])
+            ) {
+                throw new IllegalStateException("@HandlesExceptionsOf method '%s#%s' has incorrect signature"
+                    .formatted(method.getDeclaringClass().getName(), method.getName())
+                );
+            }
+        }
     }
 }
