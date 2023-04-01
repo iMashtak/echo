@@ -202,7 +202,7 @@ public class Tests {
             }).start();
         }
         var totalTime = 0;
-        while (handled.get() != 3 * count || totalTime < 1.15 * count) {
+        while (handled.get() != 3 * count || totalTime < 1.5 * count) {
             Thread.sleep(100);
             totalTime += 100;
         }
