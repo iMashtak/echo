@@ -1,6 +1,6 @@
 package io.github.imashtak.echo.quarkus;
 
-import io.github.imashtak.echo.core.AutoDiscovery;
+import io.github.imashtak.echo.core.AutoRegistration;
 import io.github.imashtak.echo.core.Bus;
 import io.quarkus.arc.Arc;
 import io.quarkus.arc.DefaultBean;
@@ -49,7 +49,8 @@ public class EchoQuarkusConfiguration {
             var found = findAllClasses(x, Thread.currentThread().getContextClassLoader());
             types.addAll(found);
         }
-        return AutoDiscovery.auto(options, types, (type) -> {
+        var bus = new Bus(options);
+        AutoRegistration.auto(bus, types, (type) -> {
             try (var instance = Arc.container().instance(type)) {
                 if (instance.isAvailable()) {
                     return Optional.of(instance.get());
@@ -61,6 +62,7 @@ public class EchoQuarkusConfiguration {
                 return Optional.empty();
             }
         });
+        return bus;
     }
 
     private Set<Class<?>> findAllClasses(String packageName, ClassLoader classLoader) {

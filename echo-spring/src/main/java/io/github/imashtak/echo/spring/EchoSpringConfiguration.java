@@ -1,7 +1,7 @@
 package io.github.imashtak.echo.spring;
 
 
-import io.github.imashtak.echo.core.AutoDiscovery;
+import io.github.imashtak.echo.core.AutoRegistration;
 import io.github.imashtak.echo.core.Bus;
 import io.github.imashtak.echo.core.Handler;
 import io.github.imashtak.echo.core.SelfHandler;
@@ -75,7 +75,8 @@ public class EchoSpringConfiguration {
             .map(x -> (Class<?>) x)
             .toList();
 
-        return AutoDiscovery.auto(options, types, (type) -> {
+        var bus = new Bus(options);
+        AutoRegistration.auto(bus, types, (type) -> {
             try {
                 return Optional.of(context.getBean(type));
             } catch (BeanCurrentlyInCreationException ex) {
@@ -86,5 +87,6 @@ public class EchoSpringConfiguration {
                 return Optional.empty();
             }
         });
+        return bus;
     }
 }

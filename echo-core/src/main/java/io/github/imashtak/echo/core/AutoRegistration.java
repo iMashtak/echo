@@ -14,19 +14,17 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 @Log4j2
-public class AutoDiscovery {
+public class AutoRegistration {
 
-    public static Bus auto(
-        Bus.Options options,
+    public static void auto(
+        Bus bus,
         Collection<? extends Class<?>> types,
         Function<Class<?>, Optional<?>> beanProvider
     ) {
-        var bus = new Bus(options);
         for (var type : types) {
             processAsHandler(type, bus, beanProvider);
             processAsSelfHandler(type, bus);
         }
-        return bus;
     }
 
     private static void processAsHandler(

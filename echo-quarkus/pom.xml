@@ -6,7 +6,7 @@
 
     <groupId>io.github.imashtak</groupId>
     <artifactId>echo-quarkus</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
     <packaging>jar</packaging>
 
     <name>Echo Framework with Quarkus</name>
@@ -77,7 +77,7 @@
         <dependency>
             <groupId>io.github.imashtak</groupId>
             <artifactId>echo-core</artifactId>
-            <version>0.6.0</version>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
