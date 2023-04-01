@@ -31,6 +31,8 @@ public class Bus {
     private final Map<Predicate<Object>, Sinks.Many<Object>> predicativeSinks;
     private final ScheduledExecutorService park;
     private final Options options;
+    private final List<Consumer<Event>> onBeforeHandle;
+    private final List<Consumer<Event>> onAfterHandle;
 
     @Getter
     @Setter
@@ -61,6 +63,8 @@ public class Bus {
         this.predicativeSinks = new ConcurrentHashMap<>();
         this.park = Executors.newSingleThreadScheduledExecutor();
         this.options = options;
+        this.onBeforeHandle = new ArrayList<>();
+        this.onAfterHandle = new ArrayList<>();
     }
 
     public Bus() {
@@ -152,6 +156,7 @@ public class Bus {
         }
         if (!explicitType.equals(type)) {
             publishTyped(event, explicitType);
+            return;
         }
         if (Task.class.isAssignableFrom(type)) {
             publish((Task<?, ?>) event);
@@ -329,11 +334,32 @@ public class Bus {
         }
         return f.subscribe(x -> {
             try {
-                operation.accept((T) x);
-            } catch (Exception ex) {
-                onException.accept((T) x, ex);
+                for (var hook : onBeforeHandle) {
+                    hook.accept((Event) x);
+                }
+                try {
+                    operation.accept((T) x);
+                } catch (Exception ex) {
+                    onException.accept((T) x, ex);
+                }
+            } finally {
+                for (var hook : onAfterHandle) {
+                    hook.accept((Event) x);
+                }
             }
         });
+    }
+
+    // endregion
+
+    // region Hooks
+
+    public void onBeforeHandle(Consumer<Event> r) {
+        onBeforeHandle.add(r);
+    }
+
+    public void onAfterHandle(Consumer<Event> r) {
+        onAfterHandle.add(r);
     }
 
     // endregion

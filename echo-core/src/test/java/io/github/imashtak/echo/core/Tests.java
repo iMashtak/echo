@@ -133,4 +133,80 @@ public class Tests {
         assertEquals(3, handled.get());
     }
 
+    @Test
+    @SneakyThrows
+    public void testHooks() {
+        var handled = new AtomicInteger(0);
+        var bus = new Bus();
+        bus.subscribeOn(TestSimpleEvent.class,
+            e -> {
+            }, (e, ex) -> {
+            }
+        );
+        bus.onBeforeHandle(e -> {
+            handled.incrementAndGet();
+        });
+        bus.onAfterHandle(e -> {
+            handled.incrementAndGet();
+        });
+        bus.publish(new TestSimpleEvent());
+        Thread.sleep(50);
+        assertEquals(2, handled.get());
+    }
+
+    @Test
+    @SneakyThrows
+    public void testHookThrowsException() {
+        var handled = new AtomicInteger(0);
+        var bus = new Bus();
+        bus.subscribeOn(TestSimpleEvent.class,
+            e -> {
+            }, (e, ex) -> {
+            }
+        );
+        bus.onBeforeHandle(e -> {
+            handled.incrementAndGet();
+            throw new RuntimeException();
+        });
+        bus.onAfterHandle(e -> {
+            handled.incrementAndGet();
+        });
+        bus.publish(new TestSimpleEvent());
+        bus.publish(new TestSimpleEvent());
+        Thread.sleep(50);
+        assertEquals(4, handled.get());
+    }
+
+    @Test
+    @SneakyThrows
+    public void testHighLoad() {
+        var handled = new AtomicInteger(0);
+        var bus = new Bus();
+        bus.subscribeOn(TestSimpleEvent.class,
+            e -> {
+                try {
+                    handled.incrementAndGet();
+                    Thread.sleep(1);
+                } catch (InterruptedException ex) {
+                    throw new RuntimeException(ex);
+                }
+            }, (e, ex) -> {
+            }
+        );
+        var count = 10_000;
+        for (var t = 0; t < 3; ++t) {
+            new Thread(() -> {
+                for (var i = 0; i < count; i++) {
+                    bus.publish(new TestSimpleEvent());
+                }
+            }).start();
+        }
+        var totalTime = 0;
+        while (handled.get() != 3 * count || totalTime < 1.15 * count) {
+            Thread.sleep(100);
+            totalTime += 100;
+        }
+        assertEquals(3 * count, handled.get());
+    }
+
 }
