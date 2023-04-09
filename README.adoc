@@ -176,7 +176,10 @@ Sometimes it is easier to be more "object-oriented" and place handling method ne
 [source,java]
 ----
 @Getter
-public class SignInInitiated extends Event implements SelfHandler {
+public class SignInInitiated
+    extends Event
+    implements SelfHandler
+{
     private final String username;
     private final String password;
 
@@ -222,67 +225,72 @@ bus.onAfterHandle(e -> {
 });
 ----
 
-== Usage with Spring
+=== Auto registration of subscriptions
 
-Requires option `echo.packages.to.scan` (comma separated list of packages) to discover event locations. Can be placed in any Spring config source. Example:
+There are 3 annotations and 1 utility method that provides support for better code organization and allows to automatically create subscriptions:
+
+* `@Handler` -- marks that this *class* contains handlers of a number of events;
+* `@Handles` -- marks that this *method* is handler of some event;
+* `@HandlesExceptionsOf` -- marks that this *method* must be triggered if there will be any exception in `@Handles`-method. Scope of such handles consists of methods in `@Handler`-class;
+* `AutoRegistration::auto` -- helper method which scans provided classes for occurrences of previously mentioned annotations.
+
+Also, auto registration method will add subscription for `SelfHandler` implementations.
+
+Simple event handler may be written like this:
+
+[source,java]
+----
+@Handler
+@RequiredArgsConstructor
+public class ExampleEventHandler {
+
+    private final Bus bus;
+
+    @Handles(ExampleEvent.class)
+    public void handles(ExampleEvent e) {
+    }
+
+    @HandlesExceptionsOf({ExampleEvent.class})
+    public void onException(ExampleEvent e, Throwable ex) {
+    }
+}
+----
+
+Then you may use auto registration method for creating subscriptions:
+
+[source,java]
+----
+var bus = new Bus();
+AutoRegistration.auto(
+    bus,
+    List.of(ExampleEventHandler.class),
+    (clazz) -> Optional.of(new ExampleEventHandler(bus))
+);
+----
+
+==== Usage with Spring
+
+Requires option `echo.packages.to.scan` (comma separated list of packages) to discover event and event handlers locations. Can be placed in any Spring config source. Example:
 [source,bash]
 ----
 java -Decho.packages.to.scan=com.example.one,com.example.two ...
 ----
 
-Package `echo-spring` uses three annotations:
-
-* `@Handler` -- marks that this class contains handlers of a number of events;
-* `@Handles` -- marks that this method is handler of some event;
-* `@HandlesExceptionsOf` -- marks that this method must be triggered if there will be any exception in `@Handles`-method. Scope of such handles consists of methods in `@Handler`-class.
-
-Also, this package provides Spring-configuration class called `EchoSpringConfiguration` which must be included to Spring application context, for example, in the following way:
+Package provides Spring-configuration class called `EchoSpringConfiguration` which can be included to Spring application context, for example, in the following way:
 
 [source,java]
 ----
+@SpringBootApplication(scanBasePackageClasses = {EchoSpringConfiguration.class})
 public class Application {
     public static void main(String[] args) {
-        SpringApplication.run(
-            new Class[] {Application.class, EchoSpringConfiguration.class},
-            args
-        );
+        SpringApplication.run(Application.class, args);
     }
 }
 ----
 
-After that you will have bean of type `Bus` in the application context with automatically registered event handlers based on mentioned annotations.
+After that you will have the bean of type `Bus` in the application context with automatically registered event handlers based on mentioned annotations.
 
-There a number of ways how to declare handlers for auto registration.
-
-=== `SelfHandler` interface
-
-All events which implement interface `SelfHandler` will be auto registered.
-
-[source,java]
-----
-public class SomeEvent
-    extends Event
-    implements SelfHandler {
-    // implementation
-}
-----
-
-=== Static methods
-
-[source,java]
-----
-@Handler
-public class SomeHandler {
-
-    @Handles
-    public static void handler(SomeEvent e, Bus bus) {}
-
-    @HandlesExceptionsOf({SomeEvent.class})
-    public static void onException(SomeEvent e, Throwable ex, Bus bus) {}
-}
-----
-
-=== Bean
+Event handler may be a bean. Example:
 
 [source,java]
 ----
@@ -306,72 +314,12 @@ public class SomeHandler {
 
 It is important to lazy wire `Bus` dependency.
 
-== Usage with Quarkus
+==== Usage with Quarkus
 
-Requires option `echo.packages.to.scan` (comma separated list of packages) to discover event locations. Can be placed in any Quarkus config source. Example:
+Requires option `echo.packages.to.scan` (comma separated list of packages) to discover event and event handlers locations. Can be placed in any Quarkus config source. Example:
 [source,bash]
 ----
 java -Decho.packages.to.scan=com.example.one,com.example.two ...
 ----
 
-Package `echo-quarkus` uses three annotations:
-
-* `@Handler` -- marks that this class contains handlers of a number of events;
-* `@Handles` -- marks that this method is handler of some event;
-* `@HandlesExceptionsOf` -- marks that this method must be triggered if there will be any exception in `@Handles`-method. Scope of such handles consists of methods in `@Handler`-class.
-
-Also, this package provides Quarkus-configuration class called `EchoQuarkusConfiguration` which provides singleton instance of `Bus` to CDI. It automatically registers event handlers onto bus.
-
-There a number of ways how to declare handlers for auto registration.
-
-=== `SelfHandler` interface
-
-All events which implement interface `SelfHandler` will be auto registered.
-
-[source,java]
-----
-public class SomeEvent
-    extends Event
-    implements SelfHandler {
-    // implementation
-}
-----
-
-=== Static methods
-
-[source,java]
-----
-@Handler
-public class SomeHandler {
-
-    @Handles
-    public static void handler(SomeEvent e, Bus bus) {}
-
-    @HandlesExceptionsOf({SomeEvent.class})
-    public static void onException(SomeEvent e, Throwable ex, Bus bus) {}
-}
-----
-
-=== Bean
-
-[source,java]
-----
-@ApplicationScoped
-@Handler
-public class SomeHandler {
-
-    private final Bus bus;
-
-    public SomeHandler(Bus bus) {
-        this.bus = bus;
-    }
-
-    @Handles
-    public void handler(SomeEvent e) {}
-
-    @HandlesExceptionsOf({SomeEvent.class})
-    public void onException(SomeEvent e, Throwable ex) {}
-}
-----
-
-
+Package provides Quarkus-configuration class called `EchoQuarkusConfiguration` which provides singleton instance of `Bus` to CDI. It automatically registers event handlers onto bus.

@@ -4,10 +4,13 @@ import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class Tests {
 
@@ -207,6 +210,22 @@ public class Tests {
             totalTime += 100;
         }
         assertEquals(3 * count, handled.get());
+    }
+
+    @Test
+    @SneakyThrows
+    public void testAutoRegistration() {
+        var bus = new Bus();
+        AutoRegistration.auto(
+            bus,
+            List.of(TestSimpleEventHandler.class),
+            (clazz) -> Optional.of(new TestSimpleEventHandler(bus))
+        );
+        Thread.sleep(10);
+        bus.publish(new TestSimpleEvent());
+        bus.publish(new TestSimpleEvent());
+        Thread.sleep(50);
+        assertEquals(2, TestSimpleEventHandler.handles.get());
     }
 
 }

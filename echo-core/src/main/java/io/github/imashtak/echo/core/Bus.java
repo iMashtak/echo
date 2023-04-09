@@ -236,16 +236,6 @@ public class Bus {
         return awaitFailure(task);
     }
 
-    public Flux<Result> suspend(Work work) {
-        Optional<Task<?, ?>> task;
-        var results = new ArrayList<Mono<Result>>();
-        while ((task = work.next()).isPresent()) {
-            var result = suspend(task.get());
-            results.add(result);
-        }
-        return Flux.merge(results);
-    }
-
     // endregion
 
     // region Subscribtion methods
