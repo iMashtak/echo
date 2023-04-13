@@ -39,14 +39,23 @@ public class AutoRegistration {
         var handleMethods = Arrays.stream(type.getMethods())
             .filter(x -> x.isAnnotationPresent(Handles.class))
             .toList();
+        var defaultExceptionHandleMethod = new AtomicReference<Method>(null);
         var eventTypeToExceptionHandleMethod = new HashMap<Class<?>, Method>();
         Arrays.stream(type.getMethods())
             .filter(x -> x.isAnnotationPresent(HandlesExceptionsOf.class))
             .forEach(x -> {
                 var a = x.getAnnotation(HandlesExceptionsOf.class);
                 var classes = a.value();
-                for (var c : classes) {
-                    eventTypeToExceptionHandleMethod.put(c, x);
+                if (classes.length == 0) {
+                    if (defaultExceptionHandleMethod.get() != null) {
+                        throw new IllegalStateException("There are several exception handlers declared (which is not " +
+                            "acceptable) in event handler %s".formatted(type.getName()));
+                    }
+                    defaultExceptionHandleMethod.set(x);
+                } else {
+                    for (var c : classes) {
+                        eventTypeToExceptionHandleMethod.put(c, x);
+                    }
                 }
             });
         for (var handleMethod : handleMethods) {
@@ -56,12 +65,16 @@ public class AutoRegistration {
                     .formatted(eventType.getName(), type.getName()));
             }
             var exHandlerMethod = eventTypeToExceptionHandleMethod.get(eventType);
-            if (exHandlerMethod == null) {
+            if (exHandlerMethod == null && defaultExceptionHandleMethod.get() == null) {
                 throw new RuntimeException(("Exception handler (method annotated with @HandlesExceptionsOf) " +
                     "not found for type '%s' in class '%s'").formatted(eventType.getName(), type.getName()));
             }
+            if (exHandlerMethod == null && defaultExceptionHandleMethod.get() != null) {
+                exHandlerMethod = defaultExceptionHandleMethod.get();
+            }
+            final var exHandlerMethodF = exHandlerMethod;
             checkHandlerParameterTypes(handleMethod);
-            checkExceptionHandlerParameterTypes(exHandlerMethod);
+            checkExceptionHandlerParameterTypes(exHandlerMethodF);
             if (eventType.isAnnotation()) {
                 log.info("Auto subscribing on events annotated by: {}", eventType.getName());
                 bus.subscribeOnAnnotated(eventType.asSubclass(Annotation.class), x -> {
@@ -77,9 +90,9 @@ public class AutoRegistration {
                 }, (e, ex) -> {
                     try {
                         if (bean.get() == null) {
-                            exHandlerMethod.invoke(null, e, ex, bus);
+                            exHandlerMethodF.invoke(null, e, ex, bus);
                         } else {
-                            exHandlerMethod.invoke(bean.get(), e, ex);
+                            exHandlerMethodF.invoke(bean.get(), e, ex);
                         }
                     } catch (IllegalAccessException | InvocationTargetException exc) {
                         throw new RuntimeException(exc);
@@ -100,9 +113,9 @@ public class AutoRegistration {
                 }, (e, ex) -> {
                     try {
                         if (bean.get() == null) {
-                            exHandlerMethod.invoke(null, e, ex, bus);
+                            exHandlerMethodF.invoke(null, e, ex, bus);
                         } else {
-                            exHandlerMethod.invoke(bean.get(), e, ex);
+                            exHandlerMethodF.invoke(bean.get(), e, ex);
                         }
                     } catch (IllegalAccessException | InvocationTargetException exc) {
                         throw new RuntimeException(exc);

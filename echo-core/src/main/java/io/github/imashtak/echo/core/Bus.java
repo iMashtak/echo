@@ -104,7 +104,7 @@ public class Bus {
     // region Publish methods
 
     private <T> void emit(Sinks.Many<T> sink, T event) {
-        log.trace(() -> "Bus: emitting event of type: " + event.getClass().getName());
+        log.trace("Bus: emitting event of type: {}", event.getClass().getName());
         var result = sink.tryEmitNext(event);
         switch (result) {
             case FAIL_OVERFLOW -> park.schedule(
@@ -152,7 +152,7 @@ public class Bus {
     public <T> void publish(T event, Class<T> explicitType) {
         var type = event.getClass();
         if (!Event.class.isAssignableFrom(type)) {
-            throw new IllegalArgumentException("attempting to publish object that is not an event, actual type is: " + type.getName());
+            throw new IllegalArgumentException("Attempting to publish object that is not an event, actual type is: " + type.getName());
         }
         if (!explicitType.equals(type)) {
             publishTyped(event, explicitType);
@@ -191,32 +191,24 @@ public class Bus {
 
     @SuppressWarnings("unchecked")
     public <T extends Success> Mono<T> awaitSuccess(Task<?, T> task) {
-        return taskResults.get(task.id()).asMono()
-            .map(r -> {
-                taskResults.remove(task.id());
-                return r;
-            })
+        return await(task)
             .map(r -> {
                 if (r.isSuccess()) {
                     return (T) r;
                 } else {
-                    throw new IllegalStateException();
+                    throw new IllegalStateException("Awaited success but task resulted in failure");
                 }
             });
     }
 
     @SuppressWarnings("unchecked")
     public <T extends Failure> Mono<T> awaitFailure(Task<T, ?> task) {
-        return taskResults.get(task.id()).asMono()
-            .map(r -> {
-                taskResults.remove(task.id());
-                return r;
-            })
+        return await(task)
             .map(r -> {
                 if (r.isFailure()) {
                     return (T) r;
                 } else {
-                    throw new IllegalStateException();
+                    throw new IllegalStateException("Awaited failure but task resulted in success");
                 }
             });
     }
@@ -238,7 +230,7 @@ public class Bus {
 
     // endregion
 
-    // region Subscribtion methods
+    // region Subscription methods
 
     public <T> Disposable subscribeOn(
         Class<T> type,

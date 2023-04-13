@@ -17,7 +17,7 @@ public class TestSimpleEventHandler {
         handles.incrementAndGet();
     }
 
-    @HandlesExceptionsOf({TestSimpleEvent.class})
+    @HandlesExceptionsOf({})
     public void onException(Event e, Throwable ex) {
         handles.incrementAndGet();
     }
