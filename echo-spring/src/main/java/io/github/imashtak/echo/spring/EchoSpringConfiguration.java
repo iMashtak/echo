@@ -36,15 +36,15 @@ public class EchoSpringConfiguration {
     public Bus echoBus() {
         var options = Bus.Options.define();
 
-        var publishNonSerializableDelay = environment
-            .getProperty("echo.publishNonSerializableDelay", Long.class);
-        if (publishNonSerializableDelay != null)
-            options.publishNonSerializableDelay(Duration.ofMillis(publishNonSerializableDelay));
+        var onNonSerializableRetryDelay = environment
+            .getProperty("echo.onNonSerializableRetryDelay", Long.class);
+        if (onNonSerializableRetryDelay != null)
+            options.onNonSerializableRetryDelay(Duration.ofMillis(onNonSerializableRetryDelay));
 
-        var publishOverflowDelay = environment
-            .getProperty("echo.publishOverflowDelay", Long.class);
-        if (publishOverflowDelay != null)
-            options.publishOverflowDelay(Duration.ofMillis(publishOverflowDelay));
+        var onOverflowRetryDelay = environment
+            .getProperty("echo.onOverflowRetryDelay", Long.class);
+        if (onOverflowRetryDelay != null)
+            options.onOverflowRetryDelay(Duration.ofMillis(onOverflowRetryDelay));
 
         var defaultParallelism = environment
             .getProperty("echo.defaultParallelism", Integer.class);
@@ -55,6 +55,11 @@ public class EchoSpringConfiguration {
             .getProperty("echo.logEvents", Boolean.class);
         if (logEvents != null)
             options.logEvents(logEvents);
+
+        var onOverflowRetriesCount = environment
+            .getProperty("echo.onOverflowRetriesCount", Integer.class);
+        if (onOverflowRetriesCount != null)
+            options.onOverflowRetriesCount(onOverflowRetriesCount);
 
         var registry = new SimpleBeanDefinitionRegistry();
         var scanner = new ClassPathBeanDefinitionScanner(registry);

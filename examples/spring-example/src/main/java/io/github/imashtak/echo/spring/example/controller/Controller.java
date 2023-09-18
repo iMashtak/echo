@@ -3,7 +3,6 @@ package io.github.imashtak.echo.spring.example.controller;
 import io.github.imashtak.echo.core.Bus;
 import io.github.imashtak.echo.spring.example.model.ChangeParameters;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,7 +21,7 @@ public class Controller {
     private final Bus bus;
 
     @PostMapping("post")
-    public Mono<ResponseEntity<String>> changeParameters(
+    public Mono<String> changeParameters(
         @RequestParam Optional<String> first,
         @RequestParam Optional<String> second,
         @RequestParam Optional<String> third,
@@ -32,12 +31,13 @@ public class Controller {
         return bus.suspend(task)
             .map(result -> {
                 if (result.isSuccess()) {
-                    return ResponseEntity.ok("ok");
+                    return "ok";
                 } else {
-                    return ResponseEntity.status(500).body("error");
+                    return "error";
                 }
             })
-            .timeout(Duration.ofSeconds(60));
+            .timeout(Duration.ofSeconds(60))
+            ;
     }
 
 }

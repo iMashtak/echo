@@ -38,13 +38,15 @@ public class Bus {
     @Setter
     public static class Options {
 
-        private Duration publishNonSerializableDelay = Duration.ofMillis(1);
+        private Duration onNonSerializableRetryDelay = Duration.ofMillis(1);
 
-        private Duration publishOverflowDelay = Duration.ofMillis(50);
+        private Duration onOverflowRetryDelay = Duration.ofMillis(50);
 
         private int defaultParallelism = 7;
 
         private boolean logEvents = false;
+
+        private int onOverflowRetriesCount = -1;
 
         private Options() {
         }
@@ -103,18 +105,23 @@ public class Bus {
 
     // region Publish methods
 
-    private <T> void emit(Sinks.Many<T> sink, T event) {
+    private <T> void emit(Sinks.Many<T> sink, T event, int leftRetries) {
         log.trace("Bus: emitting event of type: {}", event.getClass().getName());
         var result = sink.tryEmitNext(event);
         switch (result) {
-            case FAIL_OVERFLOW -> park.schedule(
-                () -> emit(sink, event),
-                options.publishOverflowDelay.toNanos(),
-                TimeUnit.NANOSECONDS
-            );
+            case FAIL_OVERFLOW -> {
+                if (leftRetries == 0) {
+                    throw new RuntimeException("Overflow retries limit exceeded");
+                }
+                park.schedule(
+                    () -> emit(sink, event, leftRetries < 0 ? leftRetries : leftRetries - 1),
+                    options.onOverflowRetryDelay.toNanos(),
+                    TimeUnit.NANOSECONDS
+                );
+            }
             case FAIL_NON_SERIALIZED -> park.schedule(
-                () -> emit(sink, event),
-                options.publishNonSerializableDelay.toNanos(),
+                () -> emit(sink, event, leftRetries),
+                options.onNonSerializableRetryDelay.toNanos(),
                 TimeUnit.NANOSECONDS
             );
             case OK, FAIL_ZERO_SUBSCRIBER -> {
@@ -127,19 +134,19 @@ public class Bus {
         checkSinkClassifiers(type);
         for (var sinkType : sinkClassifiers) {
             if (sinkType.isAssignableFrom(type))
-                emit(classifiedSinks.get(type), event);
+                emit(classifiedSinks.get(type), event, options.onOverflowRetriesCount);
         }
         for (var entry : predicativeSinks.entrySet()) {
             var filter = entry.getKey();
             var sink = entry.getValue();
             if (filter.test(event))
-                emit(sink, event);
+                emit(sink, event, options.onOverflowRetriesCount);
         }
         for (var annotation : annotatedSinksClassifiers) {
             checkAnnotatedSinkClassifiers(annotation);
             if (type.isAnnotationPresent(annotation)) {
                 var sink = annotatedSinks.get(annotation);
-                emit(sink, event);
+                emit(sink, event, options.onOverflowRetriesCount);
             }
         }
     }
@@ -192,11 +199,11 @@ public class Bus {
     @SuppressWarnings("unchecked")
     public <T extends Success> Mono<T> awaitSuccess(Task<?, T> task) {
         return await(task)
-            .map(r -> {
+            .handle((r, sink) -> {
                 if (r.isSuccess()) {
-                    return (T) r;
+                    sink.next((T) r);
                 } else {
-                    throw new IllegalStateException("Awaited success but task resulted in failure");
+                    sink.error(new IllegalStateException("Awaited success but task resulted in failure"));
                 }
             });
     }
@@ -204,11 +211,11 @@ public class Bus {
     @SuppressWarnings("unchecked")
     public <T extends Failure> Mono<T> awaitFailure(Task<T, ?> task) {
         return await(task)
-            .map(r -> {
+            .handle((r, sink) -> {
                 if (r.isFailure()) {
-                    return (T) r;
+                    sink.next((T) r);
                 } else {
-                    throw new IllegalStateException("Awaited failure but task resulted in success");
+                    sink.error(new IllegalStateException("Awaited failure but task resulted in success"));
                 }
             });
     }

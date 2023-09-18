@@ -29,11 +29,11 @@ public class EchoQuarkusConfiguration {
 
         ConfigProvider.getConfig()
             .getOptionalValue("echo.publishNonSerializableDelay", Long.class)
-            .ifPresent(x -> options.publishNonSerializableDelay(Duration.ofMillis(x)));
+            .ifPresent(x -> options.onNonSerializableRetryDelay(Duration.ofMillis(x)));
 
         ConfigProvider.getConfig()
             .getOptionalValue("echo.publishOverflowDelay", Long.class)
-            .ifPresent(aLong -> options.publishOverflowDelay(Duration.ofMillis(aLong)));
+            .ifPresent(x -> options.onOverflowRetryDelay(Duration.ofMillis(x)));
 
         ConfigProvider.getConfig()
             .getOptionalValue("echo.defaultParallelism", Integer.class)
@@ -42,6 +42,10 @@ public class EchoQuarkusConfiguration {
         ConfigProvider.getConfig()
             .getOptionalValue("echo.logEvents", Boolean.class)
             .ifPresent(options::logEvents);
+
+        ConfigProvider.getConfig()
+            .getOptionalValue("echo.onOverflowRetriesCount", Integer.class)
+            .ifPresent(options::onOverflowRetriesCount);
 
         var packages = ConfigProvider.getConfig().getValues("echo.packages.to.scan", String.class);
         var types = new HashSet<Class<?>>();
