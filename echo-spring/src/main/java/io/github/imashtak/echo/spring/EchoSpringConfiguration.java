@@ -61,6 +61,11 @@ public class EchoSpringConfiguration {
         if (onOverflowRetriesCount != null)
             options.onOverflowRetriesCount(onOverflowRetriesCount);
 
+        var resurrectOnError = environment
+            .getProperty("echo.resurrectOnError", Boolean.class);
+        if (resurrectOnError != null)
+            options.resurrectOnError(resurrectOnError);
+
         var registry = new SimpleBeanDefinitionRegistry();
         var scanner = new ClassPathBeanDefinitionScanner(registry);
         scanner.resetFilters(false);

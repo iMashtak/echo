@@ -180,7 +180,7 @@ public class Tests {
         Thread.sleep(100);
         bus.publish(new TestSimpleEvent());
         Thread.sleep(100);
-        assertEquals(3, handled.get());
+        assertEquals(6, handled.get());
     }
 
     @Test

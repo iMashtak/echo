@@ -47,6 +47,10 @@ public class EchoQuarkusConfiguration {
             .getOptionalValue("echo.onOverflowRetriesCount", Integer.class)
             .ifPresent(options::onOverflowRetriesCount);
 
+        ConfigProvider.getConfig()
+            .getOptionalValue("echo.resurrectOnError", Boolean.class)
+            .ifPresent(options::resurrectOnError);
+
         var packages = ConfigProvider.getConfig().getValues("echo.packages.to.scan", String.class);
         var types = new HashSet<Class<?>>();
         for (var x : packages) {

@@ -48,6 +48,8 @@ public class Bus {
 
         private int onOverflowRetriesCount = -1;
 
+        private boolean resurrectOnError = true;
+
         private Options() {
         }
 
@@ -321,20 +323,27 @@ public class Bus {
         if (options.logEvents) {
             f = f.log();
         }
-        return f.subscribe(x -> {
-            for (var hook : onBeforeHandle) {
-                hook.accept((Event) x);
-            }
-            try {
-                operation.accept((T) x);
-            } catch (Exception ex) {
-                onException.accept((T) x, ex);
-            } finally {
-                for (var hook : onAfterHandle) {
+        return f.subscribe(
+            x -> {
+                for (var hook : onBeforeHandle) {
                     hook.accept((Event) x);
                 }
+                try {
+                    operation.accept((T) x);
+                } catch (Exception ex) {
+                    onException.accept((T) x, ex);
+                } finally {
+                    for (var hook : onAfterHandle) {
+                        hook.accept((Event) x);
+                    }
+                }
+            },
+            ex -> {
+                if (options.resurrectOnError) {
+                    subscribeOn(flux, operation, parallelism, onException);
+                }
             }
-        });
+        );
     }
 
     // endregion
