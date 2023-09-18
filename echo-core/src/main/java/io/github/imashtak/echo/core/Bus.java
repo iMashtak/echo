@@ -322,15 +322,13 @@ public class Bus {
             f = f.log();
         }
         return f.subscribe(x -> {
+            for (var hook : onBeforeHandle) {
+                hook.accept((Event) x);
+            }
             try {
-                for (var hook : onBeforeHandle) {
-                    hook.accept((Event) x);
-                }
-                try {
-                    operation.accept((T) x);
-                } catch (Exception ex) {
-                    onException.accept((T) x, ex);
-                }
+                operation.accept((T) x);
+            } catch (Exception ex) {
+                onException.accept((T) x, ex);
             } finally {
                 for (var hook : onAfterHandle) {
                     hook.accept((Event) x);
