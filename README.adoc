@@ -120,14 +120,14 @@ public class SignInInitiated extends Task<Failed, Succeed> {
     public static class Succeed extends Success {
         private final String token;
 
-        public Succeed(Task<?, ?> task, String token) {
+        public Succeed(SignInInitiated task, String token) {
             super(task);
             this.token = token;
         }
     }
 
     public static class Failed extends Failure {
-        public Failed(Task<?, ?> task, Throwable cause) {
+        public Failed(SignInInitiated task, Throwable cause) {
             super(task, cause);
         }
     }
