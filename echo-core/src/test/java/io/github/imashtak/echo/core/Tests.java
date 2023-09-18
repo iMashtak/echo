@@ -164,20 +164,23 @@ public class Tests {
         var bus = new Bus();
         bus.subscribeOn(TestSimpleEvent.class,
             e -> {
-            }, (e, ex) -> {
+                handled.incrementAndGet();
+            },
+            (e, ex) -> {
             }
         );
         bus.onBeforeHandle(e -> {
             handled.incrementAndGet();
-            throw new RuntimeException();
         });
         bus.onAfterHandle(e -> {
             handled.incrementAndGet();
+            throw new RuntimeException();
         });
         bus.publish(new TestSimpleEvent());
+        Thread.sleep(100);
         bus.publish(new TestSimpleEvent());
-        Thread.sleep(500);
-        assertEquals(2, handled.get());
+        Thread.sleep(100);
+        assertEquals(3, handled.get());
     }
 
     @Test
