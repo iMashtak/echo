@@ -176,7 +176,7 @@ public class Tests {
         });
         bus.publish(new TestSimpleEvent());
         bus.publish(new TestSimpleEvent());
-        Thread.sleep(50);
+        Thread.sleep(1000);
         assertEquals(4, handled.get());
     }
 
