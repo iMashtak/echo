@@ -91,11 +91,15 @@ Method `Bus::subscribeOn` is non-blocking and all handles will be executed in di
 
 So `Event` is just a portion of data which can be handled asynchronously.
 
-Each event carries a `Flow` -- special amount of data purposed to hold information about chain of events -- for tracing or debug stuff.
+There are several extensions for subscribing:
+
+- first, you can subscribe on interface class, which means that all events that are implement such an interface will be handled. This is default behavior of `subscribeOn` method;
+- second, you can subscribe on classes, which are annotated by some annotation, the right method for that is `subscribeOnAnnotated`;
+- third, you can set your own predicate and subscribe on events that matches this predicate --- see one of overloads of `subscribeOn` method.
 
 === Flows
 
-All events have flow associated with them -- mostly for tracing reasons. Also flow can hold any useful info in its field `Flow::context`. One possible use case is storing info about the user -- initiator of processing request.
+Each event carries a `Flow` -- special amount of data purposed to hold information about chain of events -- for tracing or debug stuff. All events have flow associated with them -- mostly for tracing reasons. Also flow can hold any useful info in its field `Flow::context`. One possible use case is storing info about the user -- initiator of processing request.
 
 === Tasks
 
@@ -208,7 +212,7 @@ bus.subscribeOn(SignInInitiated.class);
 
 === Hooks
 
-Bus provider a number of hooks:
+Bus provides a number of hooks:
 
 - `bus.onBeforeHandle` calls right before event handling method call;
 - `bus.onAfterHandle` calls right after event handling method call and (or) its exception handling method call.
